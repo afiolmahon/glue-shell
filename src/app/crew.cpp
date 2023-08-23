@@ -230,8 +230,6 @@ public:
                 e != 0) {
             fatal("command failed with non-zero exit status: ", e);
         }
-
-        updateCompileCommandsSymlink();
     }
 
     void updateCompileCommandsSymlink()
@@ -365,11 +363,15 @@ int main(int argc, char** argv)
             stageName = *it;
         } else if (arg == "cmake") {
             // TODO: dry run support
-            currentBuildConfig().cmake(std::vector(++it, args.end()));
+            auto build = currentBuildConfig();
+            build.cmake(std::vector(++it, args.end()));
+            build.updateCompileCommandsSymlink();
             return 0;
         } else if (arg == "cmake-init") {
             // TODO: dry run support
-            currentBuildConfig().cmakeInit(std::vector(++it, args.end()));
+            auto build = currentBuildConfig();
+            build.cmakeInit(std::vector(++it, args.end()));
+            build.updateCompileCommandsSymlink();
             return 0;
         } else if (arg == "install") {
             // TODO: dry run support
