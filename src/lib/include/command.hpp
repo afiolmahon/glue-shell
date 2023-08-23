@@ -6,6 +6,7 @@
 
 #include "util.hpp"
 
+#include <concepts>
 #include <filesystem>
 #include <iostream>
 #include <map>
@@ -31,13 +32,13 @@ public:
         return std::move(*this);
     }
 
-    template <typename First, typename... Rest>
+    template <std::convertible_to<std::string> First, typename... Rest>
     Command args(First&& first, Rest&&... rest) &&
     {
         m_args.emplace_back(std::forward<First>(first));
         return args<Rest...>(std::forward<Rest>(rest)...);
     }
-    template <typename First, typename... Rest>
+    template <std::convertible_to<std::string> First, typename... Rest>
     Command& args(First&& first, Rest&&... rest) &
     {
         m_args.emplace_back(std::forward<First>(first));
