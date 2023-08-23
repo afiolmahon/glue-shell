@@ -55,6 +55,34 @@ void replaceProcessImage(
     }
 }
 
+/**
+ * @param fd - fd to read data from
+ * @param dest - stream to write data to
+ *
+ * @fatal - error occurs and errno is set to neither EINTR, EIO
+ */
+void pumpFdToStream(int fd, std::ostream& dest)
+{
+    thread_local char buffer[4096];
+
+    while (1) {
+        ssize_t count = ::read(fd, buffer, sizeof(buffer));
+        if (count == -1) {
+            if (errno == EINTR) {
+                continue;
+            } else if (errno == EIO) { // child side closed
+                break;
+            } else {
+                fatal("read() failed: ", std::strerror(errno));
+            }
+        } else if (count == 0) {
+            break;
+        } else {
+            dest << std::string_view(buffer, count);
+        }
+    }
+    dest.flush();
+}
 } // namespace
 
 int Command::run()
@@ -121,40 +149,11 @@ int Command::runPipe()
     ::close(outPipe[1]);
     ::close(errPipe[1]);
 
-    char buffer[4096];
-    while (1) {
-        ssize_t count = ::read(outPipe[0], buffer, sizeof(buffer));
-        if (count == -1) {
-            if (errno == EINTR) {
-                continue;
-            } else {
-                fatal("read() failed");
-            }
-        } else if (count == 0) {
-            break;
-        } else {
-            outStream() << std::string_view(buffer, count);
-        }
-    }
+    pumpFdToStream(outPipe[0], outStream());
     ::close(outPipe[0]);
-    outStream().flush();
 
-    while (1) {
-        ssize_t count = ::read(errPipe[0], buffer, sizeof(buffer));
-        if (count == -1) {
-            if (errno == EINTR) {
-                continue;
-            } else {
-                fatal("read() failed");
-            }
-        } else if (count == 0) {
-            break;
-        } else {
-            errStream() << std::string_view(buffer, count);
-        }
-    }
+    pumpFdToStream(errPipe[0], errStream());
     ::close(errPipe[0]);
-    errStream().flush();
 
     return childExit(pid);
 }
@@ -173,29 +172,10 @@ int Command::runPty()
     }
 
     // parent
-    char buffer[4096];
-
     // TODO: support the input side of the psuedoterminal
     // try this approach: https://rmathew.blogspot.com/2006/09/terminal-sickness.html
-
-    while (1) {
-        ssize_t count = ::read(amaster, buffer, sizeof(buffer));
-        if (count == -1) {
-            if (errno == EINTR) {
-                continue;
-            } else if (errno == EIO) { // child side closed
-                break;
-            } else {
-                fatal("read() failed: ", std::strerror(errno));
-            }
-        } else if (count == 0) {
-            break;
-        } else {
-            outStream() << std::string_view(buffer, count);
-        }
-    }
+    pumpFdToStream(amaster, outStream());
     ::close(amaster);
-    outStream().flush();
 
     return childExit(pid);
 }
