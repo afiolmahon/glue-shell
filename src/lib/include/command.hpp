@@ -115,23 +115,23 @@ public:
         return std::move(*this);
     }
 
-    Command& setCout(std::ostream& str) &
+    Command& setOut(std::ostream& str) &
     {
         m_outStream = str;
         return *this;
     }
-    Command setCout(std::ostream& str) &&
+    Command setOut(std::ostream& str) &&
     {
         m_outStream = str;
         return std::move(*this);
     }
 
-    Command& setCerr(std::ostream& str) &
+    Command& setErr(std::ostream& str) &
     {
         m_errStream = str;
         return *this;
     }
-    Command setCerr(std::ostream& str) &&
+    Command setErr(std::ostream& str) &&
     {
         m_errStream = str;
         return std::move(*this);

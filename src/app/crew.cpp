@@ -17,8 +17,8 @@ struct Repo {
         std::stringstream outStr;
         std::ofstream errStr("/dev/null");
         if (int result = Command("git", "rev-parse", "--show-toplevel")
-                                 .setCout(outStr)
-                                 .setCerr(errStr)
+                                 .setOut(outStr)
+                                 .setErr(errStr)
                                  .run();
                 result == 0) {
             fs::path gitRoot = trim(outStr.str());
