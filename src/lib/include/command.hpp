@@ -130,19 +130,7 @@ public:
     }
 
     /** Execute the child process, block until it finishes and return its exit code */
-    int run()
-    {
-        int result = m_usePty ? runPty() : runPipe();
-        if (result != 0) {
-            switch (m_onError) {
-            case OnError::Return:
-                break; // return the result
-            case OnError::Fatal:
-                fatal("command \"", toString(), "\" failed with non-zero exit status: ", result);
-            }
-        }
-        return result;
-    }
+    int run();
 
     /** Report the command line as a string */
     std::string toString() const

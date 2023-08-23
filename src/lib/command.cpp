@@ -25,6 +25,20 @@ int childExit(int pid)
 }
 } // namespace
 
+int Command::run()
+{
+    int result = m_usePty ? runPty() : runPipe();
+    if (result != 0) {
+        switch (m_onError) {
+        case OnError::Return:
+            break; // return the result
+        case OnError::Fatal:
+            fatal("command \"", toString(), "\" failed with non-zero exit status: ", result);
+        }
+    }
+    return result;
+}
+
 int Command::runPipe()
 {
     if (m_verbose) {
