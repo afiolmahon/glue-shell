@@ -80,13 +80,6 @@ public:
     int run(std::ostream& outStr = std::cout, std::ostream& errStr = std::cerr) const;
     int runPty(std::ostream& outStr = std::cout) const;
 
-    void tryRun(std::ostream& outStr = std::cout, std::ostream& errStr = std::cerr) const
-    {
-        if (int r = run(outStr, errStr); r != 0) {
-            throw std::runtime_error("run exited with status " + std::to_string(r));
-        }
-    }
-
     void describe(std::ostream& str = std::cerr) const
     {
         str << m_command << " ";
