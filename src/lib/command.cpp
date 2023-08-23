@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+namespace fs = std::filesystem;
+
 namespace crew {
 namespace {
 /** Wait for a child process to exit and return its exit code */
@@ -23,6 +25,36 @@ int childExit(int pid)
 
     return WEXITSTATUS(status);
 }
+
+/** Called from the child process to replace the current process with the specified command */
+void replaceProcessImage(
+        std::string command,
+        std::vector<std::string> args,
+        const std::optional<fs::path>& cd,
+        const std::map<std::string, std::string>& env)
+{
+    if (cd.has_value()) {
+        current_path(*cd);
+    }
+
+    // setup subprocess specific environment variables
+    for (const auto& [k, v] : env) {
+        if (::setenv(k.c_str(), v.c_str(), 1) == -1) {
+            fatal("failed to update environment variable ", k, ": ", std::strerror(errno));
+        }
+    }
+
+    std::vector<char*> argv{command.data()};
+    for (auto& a : args) {
+        argv.push_back(a.data());
+    }
+    argv.push_back(nullptr);
+
+    if (::execvp(command.c_str(), argv.data()) == -1) {
+        fatal("execvp failed: ", std::strerror(errno));
+    }
+}
+
 } // namespace
 
 int Command::run()
@@ -75,17 +107,6 @@ int Command::runPipe()
         fatal("fork() failed");
     }
     if (pid == 0) { // child
-        if (m_cd.has_value()) {
-            current_path(*m_cd);
-        }
-
-        // setup subprocess specific environment variables
-        for (const auto& [k, v] : m_envOverride) {
-            if (::setenv(k.c_str(), v.c_str(), 1) == -1) {
-                fatal("failed to update environment variable ", k, ": ", std::strerror(errno));
-            }
-        }
-
         while ((::dup2(outPipe[1], STDOUT_FILENO) == -1) && (errno == EINTR)) {
         }
         while ((::dup2(errPipe[1], STDERR_FILENO) == -1) && (errno == EINTR)) {
@@ -93,18 +114,7 @@ int Command::runPipe()
         ::close(outPipe[0]);
         ::close(errPipe[0]);
 
-        std::string command = m_command;
-        auto args = m_args;
-
-        std::vector<char*> argv{command.data()};
-        for (auto& a : args) {
-            argv.push_back(a.data());
-        }
-        argv.push_back(nullptr);
-
-        if (::execvp(m_command.c_str(), argv.data()) == -1) {
-            fatal("execvp failed: ", std::strerror(errno));
-        }
+        replaceProcessImage(m_command, m_args, m_cd, m_envOverride);
     }
 
     // parent
@@ -159,29 +169,7 @@ int Command::runPty()
         fatal("fork() failed");
     }
     if (pid == 0) { // child
-        if (m_cd.has_value()) {
-            current_path(*m_cd);
-        }
-
-        // setup subprocess specific environment variables
-        for (const auto& [k, v] : m_envOverride) {
-            if (::setenv(k.c_str(), v.c_str(), 1) == -1) {
-                fatal("failed to update environment variable ", k, ": ", std::strerror(errno));
-            }
-        }
-
-        std::string command = m_command;
-        auto args = m_args;
-
-        std::vector<char*> argv{command.data()};
-        for (auto& a : args) {
-            argv.push_back(a.data());
-        }
-        argv.push_back(nullptr);
-
-        if (::execvp(m_command.c_str(), argv.data()) == -1) {
-            fatal("execvp failed: ", std::strerror(errno));
-        }
+        replaceProcessImage(m_command, m_args, m_cd, m_envOverride);
     }
 
     // parent
