@@ -33,13 +33,13 @@ public:
     }
 
     template <std::convertible_to<std::string> First, typename... Rest>
-    Command args(First&& first, Rest&&... rest) &&
+    Command& args(First&& first, Rest&&... rest) &
     {
         m_args.emplace_back(std::forward<First>(first));
         return args<Rest...>(std::forward<Rest>(rest)...);
     }
     template <std::convertible_to<std::string> First, typename... Rest>
-    Command& args(First&& first, Rest&&... rest) &
+    Command args(First&& first, Rest&&... rest) &&
     {
         m_args.emplace_back(std::forward<First>(first));
         return args<Rest...>(std::forward<Rest>(rest)...);
@@ -143,14 +143,14 @@ protected:
 private:
     // recursive base case for the args(T...) methods
     template <typename None = void>
-    Command args() &&
-    {
-        return std::move(*this);
-    }
-    template <typename None = void>
     Command& args() &
     {
         return *this;
+    }
+    template <typename None = void>
+    Command args() &&
+    {
+        return std::move(*this);
     }
 
     // streams to populate with child process output
