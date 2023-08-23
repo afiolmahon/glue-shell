@@ -15,7 +15,7 @@
 
 namespace crew {
 
-class Command {
+class [[nodiscard]] Command {
 public:
     explicit Command(std::string command) :
         m_command(std::move(command)) {}
