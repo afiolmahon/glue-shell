@@ -38,7 +38,9 @@ public:
     {
         Command("git").arg("fetch").setCurrentDir(etoRoot).run();
         Command("git").arg("pull").setCurrentDir(etoRoot).run();
-        eto().args("oe", "update-layers").setCurrentDir(etoRoot).tryRun();
+        if (int e = eto().args("oe", "update-layers").setCurrentDir(etoRoot).run(); e != 0) {
+            fatal("oe update-layers failed with status ", e);
+        }
         // TODO(antonio): configure PTY so output isn't scrunched up
         if (Command(etoRoot / "bin" / "eto")
                         .args("oe", "bitbake", "veo-sysroots", "root-image")
