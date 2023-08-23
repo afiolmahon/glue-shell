@@ -129,8 +129,6 @@ public:
 
     /** Execute the child process, block until it finishes and return its exit code */
     int run() { return m_usePty ? runPty() : run(); }
-    /** Use a pty to receive child stdout */
-    int runPty();
 
 protected:
     std::ostream& outStream() { return m_outStream.get(); }
@@ -138,6 +136,8 @@ protected:
 
     /** Use pipes to receive child stdout, stderr */
     int runPipe();
+    /** Use a pty to receive child stdout */
+    int runPty();
 
 private:
     // recursive base case for the args(T...) methods
