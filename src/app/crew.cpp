@@ -120,6 +120,11 @@ public:
         return Command{etoRoot / "bin" / "eto"};
     }
 
+    fs::path pathToStage(const Stage& stage)
+    {
+        return etoRoot / "tmp" / "stages" / stage.name;
+    }
+
     void updateOe()
     {
         Command("git").arg("fetch").setCurrentDir(etoRoot).run();
@@ -259,8 +264,7 @@ public:
         };
 
         if (repo.isVeobot() || repo.isCruft()) {
-            fs::path stagePath = oe.etoRoot / "tmp" / "stages" / stage.name;
-            args.push_back("-DETO_STAGEDIR=" + stagePath.string());
+            args.push_back("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
         }
 
         for (auto& a : extraArgs) {
