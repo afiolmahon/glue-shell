@@ -30,28 +30,17 @@ public:
         args(std::forward<Args>(arguments)...);
     }
 
-    Command& arg(std::string arg) &
-    {
-        m_args.push_back(arg);
-        return *this;
-    }
-    Command arg(std::string arg) &&
-    {
-        m_args.push_back(arg);
-        return std::move(*this);
-    }
-
     template <std::convertible_to<std::string> First, typename... Rest>
     Command& args(First&& first, Rest&&... rest) &
     {
         m_args.emplace_back(std::forward<First>(first));
-        return args<Rest...>(std::forward<Rest>(rest)...);
+        args<Rest...>(std::forward<Rest>(rest)...);
+        return *this;
     }
     template <std::convertible_to<std::string> First, typename... Rest>
     Command args(First&& first, Rest&&... rest) &&
     {
-        m_args.emplace_back(std::forward<First>(first));
-        return args<Rest...>(std::forward<Rest>(rest)...);
+        return std::move(this->args(std::forward<First>(first), std::forward<Rest>(rest)...));
     }
 
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
@@ -65,21 +54,7 @@ public:
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
     Command args(Begin begin, End end) &&
     {
-        for (auto it = begin; it != end; ++it) {
-            m_args.push_back(*it);
-        }
-        return std::move(*this);
-    }
-
-    template <RangeOf<std::string> Range>
-    Command args(Range&& range) &&
-    {
-        return args(range.begin(), range.end());
-    }
-    template <RangeOf<std::string> Range>
-    Command& args(Range&& range) &
-    {
-        return args(range.begin(), range.end());
+        return std::move(this->args(begin, end));
     }
 
     Command& setEnv(const std::string& k, std::string value) &
@@ -89,8 +64,7 @@ public:
     }
     Command setEnv(const std::string& k, std::string value) &&
     {
-        m_envOverride[k] = std::move(value);
-        return std::move(*this);
+        return std::move(this->setEnv(k, std::move(value)));
     }
 
     Command& setCurrentDir(std::optional<std::filesystem::path> directory) &
@@ -100,8 +74,7 @@ public:
     }
     Command setCurrentDir(std::optional<std::filesystem::path> directory) &&
     {
-        m_cd = std::move(directory);
-        return std::move(*this);
+        return std::move(this->setCurrentDir(std::move(directory)));
     }
 
     Command& setVerbose(bool verbose) &
@@ -109,33 +82,21 @@ public:
         m_verbose = verbose;
         return *this;
     }
-    Command setVerbose(bool verbose) &&
-    {
-        m_verbose = verbose;
-        return std::move(*this);
-    }
+    Command setVerbose(bool verbose) && { return std::move(this->setVerbose(verbose)); }
 
     Command& setOut(std::ostream& str) &
     {
         m_outStream = str;
         return *this;
     }
-    Command setOut(std::ostream& str) &&
-    {
-        m_outStream = str;
-        return std::move(*this);
-    }
+    Command setOut(std::ostream& str) && { return std::move(this->setOut(str)); }
 
     Command& setErr(std::ostream& str) &
     {
         m_errStream = str;
         return *this;
     }
-    Command setErr(std::ostream& str) &&
-    {
-        m_errStream = str;
-        return std::move(*this);
-    }
+    Command setErr(std::ostream& str) && { return std::move(this->setErr(str)); }
 
     /** Control whether or not run() emulates a terminal device */
     Command& usePty(bool use = true) &
@@ -143,22 +104,14 @@ public:
         m_usePty = use;
         return *this;
     }
-    Command usePty(bool use = true) &&
-    {
-        m_usePty = use;
-        return std::move(*this);
-    }
+    Command usePty(bool use = true) && { return std::move(this->usePty(use)); }
 
     Command& onError(OnError onError) &
     {
         m_onError = onError;
         return *this;
     }
-    Command onError(OnError onError) &&
-    {
-        m_onError = onError;
-        return std::move(*this);
-    }
+    Command onError(OnError onError) && { return std::move(this->onError(onError)); }
 
     void describe(std::ostream& str = std::cerr) const
     {
@@ -217,11 +170,6 @@ private:
     Command& args() &
     {
         return *this;
-    }
-    template <typename None = void>
-    Command args() &&
-    {
-        return std::move(*this);
     }
 
     // streams to populate with child process output

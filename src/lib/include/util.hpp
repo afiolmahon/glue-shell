@@ -29,10 +29,6 @@ inline std::string trim(std::string&& s)
 }
 
 template <class R, class Value>
-concept RangeOf = std::ranges::range<R>
-        && std::same_as<std::ranges::range_value_t<R>, Value>;
-
-template <class R, class Value>
 concept InputIteratorOf = std::input_iterator<R>
         && std::same_as<std::iter_value_t<R>, Value>;
 } // namespace crew
