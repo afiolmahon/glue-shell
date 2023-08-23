@@ -113,22 +113,6 @@ public:
     }
     Command onError(OnError onError) && { return std::move(this->onError(onError)); }
 
-    void describe(std::ostream& str = std::cerr) const
-    {
-        str << m_command << " ";
-        for (const auto& arg : m_args) {
-            str << arg << " ";
-        }
-        str << std::endl;
-        if (m_cd.has_value()) {
-            str << "\t- executing from directory: " << *m_cd << std::endl;
-        }
-        if (!m_envOverride.empty()) {
-            str << "\t- overriding "
-                << m_envOverride.size() << " environment variables" << std::endl;
-        }
-    }
-
     /** Execute the child process, block until it finishes and return its exit code */
     int run();
 

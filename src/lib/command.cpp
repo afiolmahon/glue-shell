@@ -27,6 +27,18 @@ int childExit(int pid)
 
 int Command::run()
 {
+    // if verbose flag is set, print details about the command being executed
+    if (m_verbose) {
+        std::cerr << toString() << std::endl;
+        if (m_cd.has_value()) {
+            std::cerr << "\t- executing from directory: " << *m_cd << std::endl;
+        }
+        if (!m_envOverride.empty()) {
+            std::cerr << "\t- overriding "
+                      << m_envOverride.size() << " environment variables" << std::endl;
+        }
+    }
+
     int result = m_usePty ? runPty() : runPipe();
     if (result != 0) {
         switch (m_onError) {
@@ -41,9 +53,6 @@ int Command::run()
 
 int Command::runPipe()
 {
-    if (m_verbose) {
-        describe();
-    }
     int outPipe[2]; // exit, entrance
     if (::pipe(outPipe) == -1) {
         fatal("failed to create outPipe");
@@ -136,9 +145,6 @@ int Command::runPipe()
 
 int Command::runPty()
 {
-    if (m_verbose) {
-        describe();
-    }
     int amaster{};
 
     int pid = ::forkpty(&amaster, /*name*/ nullptr, nullptr, nullptr);
