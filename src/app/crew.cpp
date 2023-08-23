@@ -16,8 +16,7 @@ struct Repo {
     {
         std::stringstream outStr;
         std::ofstream errStr("/dev/null");
-        if (int result = Command("git")
-                                 .args("rev-parse", "--show-toplevel")
+        if (int result = Command("git", "rev-parse", "--show-toplevel")
                                  .setCout(outStr)
                                  .setCerr(errStr)
                                  .run();
@@ -129,15 +128,14 @@ public:
 
     void updateOe()
     {
-        Command("git").arg("fetch").setCurrentDir(etoRoot).run();
-        Command("git").arg("pull").setCurrentDir(etoRoot).run();
+        Command("git", "fetch").setCurrentDir(etoRoot).run();
+        Command("git", "pull").setCurrentDir(etoRoot).run();
         eto().args("oe", "update-layers")
                 .setCurrentDir(etoRoot)
                 .onError(OnError::Fatal)
                 .run();
         // TODO(antonio): configure PTY so output isn't scrunched up
-        Command(etoRoot / "bin" / "eto")
-                .args("oe", "bitbake", "veo-sysroots", "root-image")
+        Command(etoRoot / "bin" / "eto", "oe", "bitbake", "veo-sysroots", "root-image")
                 .setCurrentDir(etoRoot)
                 .usePty()
                 .onError(OnError::Fatal)
@@ -192,7 +190,7 @@ public:
                           " | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ "
                           "{split($1,A,/ /);for(i in A)print A[i]}'"
                           " | sed '/Makefile/d' | sort -u";
-        Command("bash").args("-c", std::move(cmd)).setCurrentDir(dir).run();
+        Command("bash", "-c", std::move(cmd)).setCurrentDir(dir).run();
     }
 
     void install()
