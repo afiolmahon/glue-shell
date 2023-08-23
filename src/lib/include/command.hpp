@@ -175,7 +175,7 @@ public:
     /** Execute the child process, block until it finishes and return its exit code */
     int run()
     {
-        int result = m_usePty ? runPty() : run();
+        int result = m_usePty ? runPty() : runPipe();
         if (result != 0) {
             switch (m_onError) {
             case OnError::Return:
