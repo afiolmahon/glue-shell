@@ -84,6 +84,13 @@ public:
     }
     Command setVerbose(bool verbose) && { return std::move(this->setVerbose(verbose)); }
 
+    Command& setDry(bool dry) &
+    {
+        m_dryRun = dry;
+        return *this;
+    }
+    Command setDry(bool dry) && { return std::move(this->setDry(dry)); }
+
     Command& setOut(std::ostream& str) &
     {
         m_outStream = str;
@@ -150,6 +157,7 @@ private:
 
     OnError m_onError = OnError::Fatal;
     bool m_verbose{};
+    bool m_dryRun{};
     bool m_usePty{};
     std::string m_command;
     std::vector<std::string> m_args;

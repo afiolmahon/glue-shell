@@ -28,15 +28,21 @@ int childExit(int pid)
 int Command::run()
 {
     // if verbose flag is set, print details about the command being executed
-    if (m_verbose) {
-        std::cerr << toString() << std::endl;
+    if (m_verbose || m_dryRun) {
+        auto& str = std::cerr;
+        str << (m_dryRun ? "DRY: " : "LOG: ") << toString() << "\n";
         if (m_cd.has_value()) {
-            std::cerr << "\t- executing from directory: " << *m_cd << std::endl;
+            str << "\t- executing from directory: " << *m_cd << "\n";
         }
         if (!m_envOverride.empty()) {
-            std::cerr << "\t- overriding "
-                      << m_envOverride.size() << " environment variables" << std::endl;
+            str << "\t- overriding "
+                << m_envOverride.size() << " environment variables\n";
         }
+        str.flush();
+    }
+
+    if (m_dryRun) { // for dry run, we just want to know what would have been executed
+        return 0;
     }
 
     int result = m_usePty ? runPty() : runPipe();
