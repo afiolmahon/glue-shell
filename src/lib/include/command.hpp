@@ -45,6 +45,34 @@ public:
         return args<Rest...>(std::forward<Rest>(rest)...);
     }
 
+    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    Command& args(Begin begin, End end) &
+    {
+        for (auto it = begin; it != end; ++it) {
+            m_args.push_back(*it);
+        }
+        return *this;
+    }
+    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    Command args(Begin begin, End end) &&
+    {
+        for (auto it = begin; it != end; ++it) {
+            m_args.push_back(*it);
+        }
+        return std::move(*this);
+    }
+
+    template <RangeOf<std::string> Range>
+    Command args(Range&& range) &&
+    {
+        return args(range.begin(), range.end());
+    }
+    template <RangeOf<std::string> Range>
+    Command& args(Range&& range) &
+    {
+        return args(range.begin(), range.end());
+    }
+
     Command& setEnv(const std::string& k, std::string value) &
     {
         m_envOverride[k] = std::move(value);
