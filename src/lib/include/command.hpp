@@ -20,8 +20,6 @@ public:
     explicit Command(std::string command) :
         m_command(std::move(command)) {}
 
-    // TODO: variadic constructor for taking args in parameter pack
-
     Command& arg(std::string arg) &
     {
         m_args.push_back(arg);
@@ -48,26 +46,18 @@ public:
         return std::move(*this);
     }
 
-    // template <typename Arg, typename... Args>
-    // Command& args(Arg&& a, Args&&... aa) &
-    // {
-    //     if constexpr (sizeof...(aa) > 0) {
-    //         arg(std::move(a));
-    //     } else {
-    //         args(std::forward<Args>(aa)...);
-    //     }
-    //     return *this;
-    // }
-    // template <typename Arg, typename... Args>
-    // Command args(Arg&& a, Args&&... aa) &&
-    // {
-    //     if constexpr (sizeof...(aa) > 0) {
-    //         arg(std::move(a));
-    //     } else {
-    //         args(std::forward<Args>(aa)...);
-    //     }
-    //     return std::move(*this);
-    // }
+    template <typename First, typename... Rest>
+    Command args(First&& first, Rest&&... rest) &&
+    {
+        m_args.emplace_back(std::forward<First>(first));
+        return args<Rest...>(std::forward<Rest>(rest)...);
+    }
+    template <typename First, typename... Rest>
+    Command& args(First&& first, Rest&&... rest) &
+    {
+        m_args.emplace_back(std::forward<First>(first));
+        return args<Rest...>(std::forward<Rest>(rest)...);
+    }
 
     Command& setEnv(const std::string& k, std::string value) &
     {
@@ -129,6 +119,18 @@ public:
     }
 
 private:
+    // recursive base case for the args(T...) methods
+    template <typename None = void>
+    Command args() &&
+    {
+        return std::move(*this);
+    }
+    template <typename None = void>
+    Command& args() &
+    {
+        return *this;
+    }
+
     bool m_verbose{};
     std::string m_command;
     std::vector<std::string> m_args;
