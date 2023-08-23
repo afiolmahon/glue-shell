@@ -25,7 +25,7 @@ int childExit(int pid)
 }
 } // namespace
 
-int Command::run()
+int Command::runPipe()
 {
     if (m_verbose) {
         describe();

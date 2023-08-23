@@ -77,9 +77,6 @@ public:
         return std::move(*this);
     }
 
-    int run();
-    int runPty();
-
     Command& setCout(std::ostream& str) &
     {
         m_outStream = str;
@@ -102,6 +99,18 @@ public:
         return std::move(*this);
     }
 
+    /** Control whether or not run() emulates a terminal device */
+    Command& usePty(bool use = true) &
+    {
+        m_usePty = use;
+        return *this;
+    }
+    Command usePty(bool use = true) &&
+    {
+        m_usePty = use;
+        return std::move(*this);
+    }
+
     void describe(std::ostream& str = std::cerr) const
     {
         str << m_command << " ";
@@ -118,9 +127,17 @@ public:
         }
     }
 
+    /** Execute the child process, block until it finishes and return its exit code */
+    int run() { return m_usePty ? runPty() : run(); }
+    /** Use a pty to receive child stdout */
+    int runPty();
+
 protected:
     std::ostream& outStream() { return m_outStream.get(); }
     std::ostream& errStream() { return m_errStream.get(); }
+
+    /** Use pipes to receive child stdout, stderr */
+    int runPipe();
 
 private:
     // recursive base case for the args(T...) methods
@@ -140,6 +157,7 @@ private:
     std::reference_wrapper<std::ostream> m_errStream = std::cerr;
 
     bool m_verbose{};
+    bool m_usePty{};
     std::string m_command;
     std::vector<std::string> m_args;
     std::optional<std::filesystem::path> m_cd;
