@@ -38,10 +38,10 @@ public:
     {
         Command("git").arg("fetch").setCurrentDir(etoRoot).run();
         Command("git").arg("pull").setCurrentDir(etoRoot).run();
-        eto().args({"oe", "update-layers"}).setCurrentDir(etoRoot).tryRun();
+        eto().args("oe", "update-layers").setCurrentDir(etoRoot).tryRun();
         // TODO(antonio): configure PTY so output isn't scrunched up
         if (Command(etoRoot / "bin" / "eto")
-                        .args({"oe", "bitbake", "veo-sysroots", "root-image"})
+                        .args("oe", "bitbake", "veo-sysroots", "root-image")
                         .setCurrentDir(etoRoot)
                         .runPty()
                 != 0) {
@@ -58,8 +58,7 @@ struct Repo {
         std::stringstream outStr;
         std::ofstream errStr("/dev/null");
         if (int result = Command("git")
-                                 .arg("rev-parse")
-                                 .arg("--show-toplevel")
+                                 .args("rev-parse", "--show-toplevel")
                                  .run(outStr, errStr);
                 result == 0) {
             fs::path gitRoot = trim(outStr.str());
@@ -184,7 +183,7 @@ public:
                           " | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ "
                           "{split($1,A,/ /);for(i in A)print A[i]}'"
                           " | sed '/Makefile/d' | sort -u";
-        Command("bash").args({"-c", std::move(cmd)}).setCurrentDir(dir).run();
+        Command("bash").args("-c", std::move(cmd)).setCurrentDir(dir).run();
     }
 
     void install()
@@ -194,13 +193,13 @@ public:
         }
 
         auto c = oe.eto();
-        c.args({"stage", "-n", stage.name});
+        c.args("stage", "-n", stage.name);
 
         if (repo.isCmakeProject()) {
-            c.args({"-b", dir.string()});
+            c.args("-b", dir.string());
         };
 
-        c.args({"install", "-l28", "-j" + std::to_string(numThreads)});
+        c.args("install", "-l28", "-j" + std::to_string(numThreads));
         c.runPty();
     }
 
@@ -214,8 +213,7 @@ public:
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        auto c = oe.eto()
-                         .args({"xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string()});
+        auto c = oe.eto().args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string());
         for (auto& a : extraArgs) {
             c.arg(std::move(a));
         }
@@ -274,7 +272,7 @@ public:
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        auto c = oe.eto().args({"xc", "make", "-l28", "-j" + std::to_string(numThreads)})
+        auto c = oe.eto().args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
                          .setCurrentDir(dir);
         for (auto& arg : extraArgs) {
             c.arg(arg);
