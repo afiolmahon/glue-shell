@@ -131,18 +131,17 @@ public:
     {
         Command("git").arg("fetch").setCurrentDir(etoRoot).run();
         Command("git").arg("pull").setCurrentDir(etoRoot).run();
-        if (int e = eto().args("oe", "update-layers").setCurrentDir(etoRoot).run(); e != 0) {
-            fatal("oe update-layers failed with status ", e);
-        }
+        eto().args("oe", "update-layers")
+                .setCurrentDir(etoRoot)
+                .onError(OnError::Fatal)
+                .run();
         // TODO(antonio): configure PTY so output isn't scrunched up
-        if (Command(etoRoot / "bin" / "eto")
-                        .args("oe", "bitbake", "veo-sysroots", "root-image")
-                        .setCurrentDir(etoRoot)
-                        .usePty()
-                        .run()
-                != 0) {
-            fatal("bitbake failed");
-        }
+        Command(etoRoot / "bin" / "eto")
+                .args("oe", "bitbake", "veo-sysroots", "root-image")
+                .setCurrentDir(etoRoot)
+                .usePty()
+                .onError(OnError::Fatal)
+                .run();
     }
 
     fs::path etoRoot;
@@ -228,13 +227,11 @@ public:
         for (auto& a : extraArgs) {
             c.arg(std::move(a));
         }
-        if (int e = c.setCurrentDir(dir)
-                            .setVerbose(verbose)
-                            .usePty()
-                            .run();
-                e != 0) {
-            fatal("command failed with non-zero exit status: ", e);
-        }
+        c.setCurrentDir(dir)
+                .setVerbose(verbose)
+                .usePty()
+                .onError(OnError::Fatal)
+                .run();
     }
 
     void updateCompileCommandsSymlink()
@@ -285,12 +282,13 @@ public:
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        auto c = oe.eto().args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
-                         .setCurrentDir(dir);
-        for (auto& arg : extraArgs) {
-            c.arg(arg);
-        }
-        c.usePty().run();
+        oe.eto()
+                .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
+                .setCurrentDir(dir)
+                .onError(OnError::Fatal)
+                .usePty()
+                .args(extraArgs)
+                .run();
     }
 
     void printStatus(std::ostream& str = std::cout) const
