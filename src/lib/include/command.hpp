@@ -143,6 +143,9 @@ protected:
     /** Use a pty to receive child stdout */
     int runPty();
 
+    /** Called from the child process to replace the current process with the specified command */
+    void replaceProcessImage();
+
 private:
     // recursive base case for the args(T...) methods
     template <typename None = void>
