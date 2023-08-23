@@ -1,5 +1,5 @@
-#include "command.hpp"
-#include "util.hpp"
+#include <command.hpp>
+#include <util.hpp>
 
 #include <algorithm>
 #include <filesystem>
