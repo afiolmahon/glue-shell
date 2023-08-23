@@ -234,7 +234,7 @@ public:
 
     void test()
     {
-        // make all && make test ARGS="-j30"
+        // TODO(antonio): make all && make test ARGS="-j30"
     }
 
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
@@ -325,6 +325,7 @@ public:
     int numThreads = 30;
 };
 
+// TODO: document command line flags, use a more conventional --help page organization
 constexpr const char* const helpText = R"(A DWIM wrapper for the eto utility
     cmake <ARGS...> - invoke cmake from the current stage build dir
     cmake-init <ARGS...> - initialize a cmake dir for the current stage
