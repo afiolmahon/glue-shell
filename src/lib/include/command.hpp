@@ -31,21 +31,6 @@ public:
         return std::move(*this);
     }
 
-    Command& args(std::initializer_list<std::string> args) &
-    {
-        for (auto& a : args) {
-            arg(a);
-        }
-        return *this;
-    }
-    Command args(std::initializer_list<std::string> args) &&
-    {
-        for (auto& a : args) {
-            arg(a);
-        }
-        return std::move(*this);
-    }
-
     template <typename First, typename... Rest>
     Command args(First&& first, Rest&&... rest) &&
     {
