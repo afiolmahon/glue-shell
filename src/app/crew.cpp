@@ -231,7 +231,11 @@ public:
             fatal("command failed with non-zero exit status: ", e);
         }
 
-        // update compile commands symlink
+        updateCompileCommandsSymlink();
+    }
+
+    void updateCompileCommandsSymlink()
+    {
         const fs::path link = repo.gitRoot / "compile_commands.json";
         const fs::path target = dir / "compile_commands.json";
 
