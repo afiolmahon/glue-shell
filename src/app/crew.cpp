@@ -11,49 +11,6 @@
 using namespace crew;
 namespace fs = std::filesystem;
 
-class VeoOe {
-public:
-    VeoOe(fs::path etoRootPath) :
-        etoRoot(std::move(etoRootPath)) {}
-
-    static std::optional<VeoOe> find()
-    {
-        const char* env = std::getenv("ETO_ROOT");
-        if (env == nullptr) {
-            return {};
-        }
-        fs::path etoRoot{env};
-        if (!std::filesystem::is_directory(etoRoot)) {
-            return {};
-        }
-        return {std::move(etoRoot)};
-    }
-
-    [[nodiscard]] Command eto()
-    {
-        return Command{etoRoot / "bin" / "eto"};
-    }
-
-    void updateOe()
-    {
-        Command("git").arg("fetch").setCurrentDir(etoRoot).run();
-        Command("git").arg("pull").setCurrentDir(etoRoot).run();
-        if (int e = eto().args("oe", "update-layers").setCurrentDir(etoRoot).run(); e != 0) {
-            fatal("oe update-layers failed with status ", e);
-        }
-        // TODO(antonio): configure PTY so output isn't scrunched up
-        if (Command(etoRoot / "bin" / "eto")
-                        .args("oe", "bitbake", "veo-sysroots", "root-image")
-                        .setCurrentDir(etoRoot)
-                        .runPty()
-                != 0) {
-            fatal("bitbake failed");
-        }
-    }
-
-    fs::path etoRoot;
-};
-
 struct Repo {
     static std::optional<Repo> current()
     {
@@ -138,6 +95,49 @@ struct Stage {
 
     std::string name{"stage"};
     Type type{};
+};
+
+class VeoOe {
+public:
+    VeoOe(fs::path etoRootPath) :
+        etoRoot(std::move(etoRootPath)) {}
+
+    static std::optional<VeoOe> find()
+    {
+        const char* env = std::getenv("ETO_ROOT");
+        if (env == nullptr) {
+            return {};
+        }
+        fs::path etoRoot{env};
+        if (!std::filesystem::is_directory(etoRoot)) {
+            return {};
+        }
+        return {std::move(etoRoot)};
+    }
+
+    [[nodiscard]] Command eto()
+    {
+        return Command{etoRoot / "bin" / "eto"};
+    }
+
+    void updateOe()
+    {
+        Command("git").arg("fetch").setCurrentDir(etoRoot).run();
+        Command("git").arg("pull").setCurrentDir(etoRoot).run();
+        if (int e = eto().args("oe", "update-layers").setCurrentDir(etoRoot).run(); e != 0) {
+            fatal("oe update-layers failed with status ", e);
+        }
+        // TODO(antonio): configure PTY so output isn't scrunched up
+        if (Command(etoRoot / "bin" / "eto")
+                        .args("oe", "bitbake", "veo-sysroots", "root-image")
+                        .setCurrentDir(etoRoot)
+                        .runPty()
+                != 0) {
+            fatal("bitbake failed");
+        }
+    }
+
+    fs::path etoRoot;
 };
 
 std::string toString(const Stage::Type& type)
