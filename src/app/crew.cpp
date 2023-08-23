@@ -218,20 +218,17 @@ public:
         // make all && make test ARGS="-j30"
     }
 
-    void cmake(std::vector<std::string> extraArgs)
+    Command cmake()
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        auto c = oe.eto().args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string());
-        for (auto& a : extraArgs) {
-            c.arg(std::move(a));
-        }
-        c.setCurrentDir(dir)
+        return oe.eto()
+                .args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string())
+                .setCurrentDir(dir)
                 .setVerbose(verbose)
                 .usePty()
-                .onError(OnError::Fatal)
-                .run();
+                .onError(OnError::Fatal);
     }
 
     void updateCompileCommandsSymlink()
@@ -250,7 +247,7 @@ public:
         }
     }
 
-    void cmakeInit(const std::vector<std::string>& extraArgs)
+    Command cmakeInit()
     {
         if (!repo.isCmakeProject()) {
             fatal("not a cmake project");
@@ -262,33 +259,23 @@ public:
 
         fs::create_directories(dir);
 
-        std::vector<std::string> args{
-                "-DUSE_CLANG_TIDY=NO",
-                "-DCMAKE_BUILD_TYPE=RelWithDebugInfo",
-        };
-
+        auto result = cmake().args("-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo");
         if (repo.isVeobot() || repo.isCruft()) {
-            args.push_back("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
+            result.args("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
         }
-
-        for (auto& a : extraArgs) {
-            args.push_back(a);
-        }
-        cmake(std::move(args));
+        return result;
     }
 
-    void make(std::vector<std::string> extraArgs)
+    Command make()
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        oe.eto()
+        return oe.eto()
                 .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
                 .setCurrentDir(dir)
                 .onError(OnError::Fatal)
-                .usePty()
-                .args(extraArgs)
-                .run();
+                .usePty();
     }
 
     void printStatus(std::ostream& str = std::cout) const
@@ -367,13 +354,13 @@ int main(int argc, char** argv)
         } else if (arg == "cmake") {
             // TODO: dry run support
             auto build = currentBuildConfig();
-            build.cmake(std::vector(++it, args.end()));
+            build.cmake().args(++it, args.end()).run();
             build.updateCompileCommandsSymlink();
             return 0;
         } else if (arg == "cmake-init") {
             // TODO: dry run support
             auto build = currentBuildConfig();
-            build.cmakeInit(std::vector(++it, args.end()));
+            build.cmakeInit().args(++it, args.end()).run();
             build.updateCompileCommandsSymlink();
             return 0;
         } else if (arg == "install") {
@@ -383,7 +370,7 @@ int main(int argc, char** argv)
         } else if (arg == "mk") {
             // TODO: dry run support
             // forward remaining arguments to make, if any are supplied
-            currentBuildConfig().make(std::vector(++it, args.end()));
+            currentBuildConfig().make().args(++it, args.end()).run();
             return 0;
         } else if (arg == "targets") {
             currentBuildConfig().targets();
