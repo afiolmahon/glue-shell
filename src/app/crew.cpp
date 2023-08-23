@@ -179,6 +179,27 @@ public:
         }
     }
 
+    /**
+     * Helper for dry-run functionality which encapsulates
+     * an action that potentially changes the state of the project
+     */
+    template <typename ActionCallable>
+    [[nodiscard]] std::ostream& transaction(ActionCallable&& action)
+    {
+        if (!dryRun) {
+            action();
+        }
+
+        if (!dryRun && !verbose) {
+            static std::ofstream unusedStr("/dev/null");
+            return unusedStr;
+        }
+
+        auto& str = std::cerr;
+        str << (dryRun ? "DRY: " : "LOG: ");
+        return str;
+    }
+
     // print to stdout
     void targets() const
     {
@@ -198,16 +219,17 @@ public:
             fatal("build dir doesn't exist");
         }
 
-        auto c = oe.eto();
-        c.args("stage", "-n", stage.name);
+        auto c = oe.eto()
+                         .usePty()
+                         .setDry(dryRun)
+                         .setVerbose(verbose)
+                         .args("stage", "-n", stage.name);
 
         if (repo.isCmakeProject()) {
             c.args("-b", dir.string());
         };
 
-        c.args("install", "-l28", "-j" + std::to_string(numThreads))
-                .usePty()
-                .run();
+        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run();
     }
 
     void test()
@@ -215,35 +237,40 @@ public:
         // make all && make test ARGS="-j30"
     }
 
-    Command cmake()
+    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    void cmake(Begin begin, End end)
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        return oe.eto()
+        oe.eto()
                 .args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string())
                 .setCurrentDir(dir)
                 .setVerbose(verbose)
-                .usePty();
-    }
+                .usePty()
+                .setDry(dryRun)
+                .args(begin, end)
+                .run();
 
-    void updateCompileCommandsSymlink()
-    {
         const fs::path link = repo.gitRoot / "compile_commands.json";
         const fs::path target = dir / "compile_commands.json";
 
         if (is_symlink(link)) {
-            remove(link);
-        }
+            transaction([&link]() { remove(link); })
+                    << "removing " << link;
+        };
 
-        if (!exists(link)) {
-            create_symlink(target, link);
-        } else {
-            std::cerr << "failed to update compile_commands symlink" << std::endl;
-        }
+        transaction([&target, &link]() {
+                    if (!exists(link)) {
+                        create_symlink(target, link);
+                    } else {
+                        std::cerr << "failed to update compile_commands symlink" << std::endl;
+                    } })
+                << "symlinking compile_commands to " << link << " from " << target;
     }
 
-    Command cmakeInit()
+    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    void cmakeInit(Begin begin, End end)
     {
         if (!repo.isCmakeProject()) {
             fatal("not a cmake project");
@@ -253,24 +280,31 @@ public:
             fatal("build dir ", dir, " already exists");
         }
 
-        fs::create_directories(dir);
+        transaction([this]() { create_directories(dir); })
+                << "creating directory " << dir;
 
-        auto result = cmake().args("-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo");
+        std::vector<std::string> args{"-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo"};
         if (repo.isVeobot() || repo.isCruft()) {
-            result.args("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
+            args.push_back("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
         }
-        return result;
+
+        cmake(args.begin(), args.end());
     }
 
-    Command make()
+    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    void make(Begin begin, End end)
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
         }
-        return oe.eto()
+        oe.eto()
                 .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
+                .args(begin, end)
                 .setCurrentDir(dir)
-                .usePty();
+                .usePty()
+                .setDry(dryRun)
+                .setVerbose(dryRun)
+                .run();
     }
 
     void printStatus(std::ostream& str = std::cout) const
@@ -287,6 +321,7 @@ public:
     Stage stage;
     fs::path dir;
     bool verbose = false;
+    bool dryRun = false;
     int numThreads = 30;
 };
 
@@ -311,8 +346,9 @@ int main(int argc, char** argv)
 
     std::optional<std::string> stageName;
     bool verbose = false;
+    bool dryRun = false;
 
-    const auto currentBuildConfig = [&stageName, &verbose]() {
+    const auto currentBuildConfig = [&stageName, &verbose, &dryRun]() {
         std::optional repo = Repo::current();
         if (!repo.has_value()) {
             fatal("No project found; not in a git repo");
@@ -330,6 +366,7 @@ int main(int argc, char** argv)
                 *repo,
                 stage);
         result.verbose = verbose;
+        result.dryRun = dryRun;
         return result;
     };
 
@@ -341,31 +378,26 @@ int main(int argc, char** argv)
             return 0;
         } else if (arg == "--verbose" || arg == "-v") {
             verbose = true;
+        } else if (arg == "--dry-run") {
+            dryRun = true;
         } else if (arg == "-n" || arg == "--name") {
             if (++it == args.end()) {
                 fatal("missing stage name after ", arg);
             }
             stageName = *it;
         } else if (arg == "cmake") {
-            // TODO: dry run support
             auto build = currentBuildConfig();
-            build.cmake().args(++it, args.end()).run();
-            build.updateCompileCommandsSymlink();
+            build.cmake(++it, args.end());
             return 0;
         } else if (arg == "cmake-init") {
-            // TODO: dry run support
             auto build = currentBuildConfig();
-            build.cmakeInit().args(++it, args.end()).run();
-            build.updateCompileCommandsSymlink();
+            build.cmakeInit(++it, args.end());
             return 0;
         } else if (arg == "install") {
-            // TODO: dry run support
             currentBuildConfig().install();
             return 0;
         } else if (arg == "mk") {
-            // TODO: dry run support
-            // forward remaining arguments to make, if any are supplied
-            currentBuildConfig().make().args(++it, args.end()).run();
+            currentBuildConfig().make(++it, args.end());
             return 0;
         } else if (arg == "targets") {
             currentBuildConfig().targets();
@@ -374,7 +406,9 @@ int main(int argc, char** argv)
             currentBuildConfig().printStatus();
             return 0;
         } else if (arg == "set-stage") {
-            // TODO: dry run support
+            if (dryRun) { // TODO: dry run support
+                fatal(arg, " doesn't support dry run");
+            }
             std::optional<Repo> repo = Repo::current();
             if (!repo.has_value()) {
                 std::cerr << "Can't update stage; not in a git repo\n";
@@ -394,7 +428,9 @@ int main(int argc, char** argv)
             }
             return 0;
         } else if (arg == "update-oe") {
-            // TODO: dry run support
+            if (dryRun) { // TODO: dry run support
+                fatal(arg, " doesn't support dry run");
+            }
             auto oe = VeoOe::find();
             if (!oe.has_value()) {
                 fatal("veo oe not found");
