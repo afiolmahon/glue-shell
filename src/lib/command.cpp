@@ -25,7 +25,7 @@ int childExit(int pid)
 }
 } // namespace
 
-int Command::run(std::ostream& outStr, std::ostream& errStr) const
+int Command::run(std::ostream& outStr, std::ostream& errStr)
 {
     if (m_verbose) {
         describe();
@@ -120,7 +120,7 @@ int Command::run(std::ostream& outStr, std::ostream& errStr) const
     return childExit(pid);
 }
 
-int Command::runPty(std::ostream& outStr) const
+int Command::runPty(std::ostream& outStr)
 {
     if (m_verbose) {
         describe();

@@ -77,8 +77,8 @@ public:
         return std::move(*this);
     }
 
-    int run(std::ostream& outStr = std::cout, std::ostream& errStr = std::cerr) const;
-    int runPty(std::ostream& outStr = std::cout) const;
+    int run(std::ostream& outStr = std::cout, std::ostream& errStr = std::cerr);
+    int runPty(std::ostream& outStr = std::cout);
 
     void describe(std::ostream& str = std::cerr) const
     {
