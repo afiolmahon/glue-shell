@@ -138,7 +138,8 @@ public:
         if (Command(etoRoot / "bin" / "eto")
                         .args("oe", "bitbake", "veo-sysroots", "root-image")
                         .setCurrentDir(etoRoot)
-                        .runPty()
+                        .usePty()
+                        .run()
                 != 0) {
             fatal("bitbake failed");
         }
@@ -208,8 +209,9 @@ public:
             c.args("-b", dir.string());
         };
 
-        c.args("install", "-l28", "-j" + std::to_string(numThreads));
-        c.runPty();
+        c.args("install", "-l28", "-j" + std::to_string(numThreads))
+                .usePty()
+                .run();
     }
 
     void test()
@@ -228,7 +230,8 @@ public:
         }
         if (int e = c.setCurrentDir(dir)
                             .setVerbose(verbose)
-                            .runPty();
+                            .usePty()
+                            .run();
                 e != 0) {
             fatal("command failed with non-zero exit status: ", e);
         }
@@ -287,7 +290,7 @@ public:
         for (auto& arg : extraArgs) {
             c.arg(arg);
         }
-        c.runPty();
+        c.usePty().run();
     }
 
     void printStatus(std::ostream& str = std::cout) const
