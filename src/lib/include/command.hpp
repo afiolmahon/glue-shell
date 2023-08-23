@@ -23,8 +23,12 @@ enum class OnError {
 
 class [[nodiscard]] Command {
 public:
-    explicit Command(std::string command) :
-        m_command(std::move(command)) {}
+    template <typename... Args>
+    explicit Command(std::string command, Args... arguments) :
+        m_command(std::move(command))
+    {
+        args(std::forward<Args>(arguments)...);
+    }
 
     Command& arg(std::string arg) &
     {
