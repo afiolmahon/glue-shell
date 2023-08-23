@@ -16,6 +16,11 @@
 
 namespace crew {
 
+enum class OnError {
+    Return,
+    Fatal,
+};
+
 class [[nodiscard]] Command {
 public:
     explicit Command(std::string command) :
@@ -140,6 +145,17 @@ public:
         return std::move(*this);
     }
 
+    Command& onError(OnError onError) &
+    {
+        m_onError = onError;
+        return *this;
+    }
+    Command onError(OnError onError) &&
+    {
+        m_onError = onError;
+        return std::move(*this);
+    }
+
     void describe(std::ostream& str = std::cerr) const
     {
         str << m_command << " ";
@@ -157,7 +173,30 @@ public:
     }
 
     /** Execute the child process, block until it finishes and return its exit code */
-    int run() { return m_usePty ? runPty() : run(); }
+    int run()
+    {
+        int result = m_usePty ? runPty() : run();
+        if (result != 0) {
+            switch (m_onError) {
+            case OnError::Return:
+                break; // return the result
+            case OnError::Fatal:
+                fatal("command \"", toString(), "\" failed with non-zero exit status: ", result);
+            }
+        }
+        return result;
+    }
+
+    /** Report the command line as a string */
+    std::string toString() const
+    {
+        std::string result = m_command;
+        for (const auto& a : m_args) {
+            result += " ";
+            result += a;
+        }
+        return result;
+    }
 
 protected:
     std::ostream& outStream() { return m_outStream.get(); }
@@ -185,6 +224,7 @@ private:
     std::reference_wrapper<std::ostream> m_outStream = std::cout;
     std::reference_wrapper<std::ostream> m_errStream = std::cerr;
 
+    OnError m_onError = OnError::Return;
     bool m_verbose{};
     bool m_usePty{};
     std::string m_command;
