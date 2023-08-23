@@ -17,8 +17,8 @@
 namespace crew {
 
 enum class OnError {
+    Fatal = 0,
     Return,
-    Fatal,
 };
 
 class [[nodiscard]] Command {
@@ -228,7 +228,7 @@ private:
     std::reference_wrapper<std::ostream> m_outStream = std::cout;
     std::reference_wrapper<std::ostream> m_errStream = std::cerr;
 
-    OnError m_onError = OnError::Return;
+    OnError m_onError = OnError::Fatal;
     bool m_verbose{};
     bool m_usePty{};
     std::string m_command;

@@ -19,6 +19,7 @@ struct Repo {
         if (int result = Command("git", "rev-parse", "--show-toplevel")
                                  .setOut(outStr)
                                  .setErr(errStr)
+                                 .onError(OnError::Return)
                                  .run();
                 result == 0) {
             fs::path gitRoot = trim(outStr.str());
@@ -132,13 +133,11 @@ public:
         Command("git", "pull").setCurrentDir(etoRoot).run();
         eto().args("oe", "update-layers")
                 .setCurrentDir(etoRoot)
-                .onError(OnError::Fatal)
                 .run();
         // TODO(antonio): configure PTY so output isn't scrunched up
         Command(etoRoot / "bin" / "eto", "oe", "bitbake", "veo-sysroots", "root-image")
                 .setCurrentDir(etoRoot)
                 .usePty()
-                .onError(OnError::Fatal)
                 .run();
     }
 
@@ -225,8 +224,7 @@ public:
                 .args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string())
                 .setCurrentDir(dir)
                 .setVerbose(verbose)
-                .usePty()
-                .onError(OnError::Fatal);
+                .usePty();
     }
 
     void updateCompileCommandsSymlink()
@@ -272,7 +270,6 @@ public:
         return oe.eto()
                 .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
                 .setCurrentDir(dir)
-                .onError(OnError::Fatal)
                 .usePty();
     }
 
