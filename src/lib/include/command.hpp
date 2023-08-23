@@ -77,8 +77,30 @@ public:
         return std::move(*this);
     }
 
-    int run(std::ostream& outStr = std::cout, std::ostream& errStr = std::cerr);
-    int runPty(std::ostream& outStr = std::cout);
+    int run();
+    int runPty();
+
+    Command& setCout(std::ostream& str) &
+    {
+        m_outStream = str;
+        return *this;
+    }
+    Command setCout(std::ostream& str) &&
+    {
+        m_outStream = str;
+        return std::move(*this);
+    }
+
+    Command& setCerr(std::ostream& str) &
+    {
+        m_errStream = str;
+        return *this;
+    }
+    Command setCerr(std::ostream& str) &&
+    {
+        m_errStream = str;
+        return std::move(*this);
+    }
 
     void describe(std::ostream& str = std::cerr) const
     {
@@ -96,6 +118,10 @@ public:
         }
     }
 
+protected:
+    std::ostream& outStream() { return m_outStream.get(); }
+    std::ostream& errStream() { return m_errStream.get(); }
+
 private:
     // recursive base case for the args(T...) methods
     template <typename None = void>
@@ -108,6 +134,10 @@ private:
     {
         return *this;
     }
+
+    // streams to populate with child process output
+    std::reference_wrapper<std::ostream> m_outStream = std::cout;
+    std::reference_wrapper<std::ostream> m_errStream = std::cerr;
 
     bool m_verbose{};
     std::string m_command;

@@ -25,7 +25,7 @@ int childExit(int pid)
 }
 } // namespace
 
-int Command::run(std::ostream& outStr, std::ostream& errStr)
+int Command::run()
 {
     if (m_verbose) {
         describe();
@@ -94,11 +94,11 @@ int Command::run(std::ostream& outStr, std::ostream& errStr)
         } else if (count == 0) {
             break;
         } else {
-            outStr << std::string_view(buffer, count);
+            outStream() << std::string_view(buffer, count);
         }
     }
     ::close(outPipe[0]);
-    outStr.flush();
+    outStream().flush();
 
     while (1) {
         ssize_t count = ::read(errPipe[0], buffer, sizeof(buffer));
@@ -111,16 +111,16 @@ int Command::run(std::ostream& outStr, std::ostream& errStr)
         } else if (count == 0) {
             break;
         } else {
-            errStr << std::string_view(buffer, count);
+            errStream() << std::string_view(buffer, count);
         }
     }
     ::close(errPipe[0]);
-    errStr.flush();
+    errStream().flush();
 
     return childExit(pid);
 }
 
-int Command::runPty(std::ostream& outStr)
+int Command::runPty()
 {
     if (m_verbose) {
         describe();
@@ -177,11 +177,11 @@ int Command::runPty(std::ostream& outStr)
         } else if (count == 0) {
             break;
         } else {
-            outStr << std::string_view(buffer, count);
+            outStream() << std::string_view(buffer, count);
         }
     }
     ::close(amaster);
-    outStr.flush();
+    outStream().flush();
 
     return childExit(pid);
 }
