@@ -54,6 +54,22 @@ void pumpFdToStream(int fd, std::ostream& dest)
     }
     dest.flush();
 }
+
+struct FdPair {
+    // order matters
+    int exit{};
+    int entrance{};
+
+    static FdPair openPipe()
+    {
+        FdPair result{};
+        if (::pipe(&result.exit) == -1) {
+            fatal("failed to open pipe");
+        }
+        return result;
+    }
+};
+static_assert(sizeof(FdPair) == sizeof(int[2]));
 } // namespace
 
 int Command::run()
@@ -90,15 +106,9 @@ int Command::run()
 
 int Command::runPipe()
 {
-    int outPipe[2]; // exit, entrance
-    if (::pipe(outPipe) == -1) {
-        fatal("failed to create outPipe");
-    }
 
-    int errPipe[2]; // exit, entrance
-    if (::pipe(errPipe) == -1) {
-        fatal("failed to create errPipe");
-    }
+    auto outPipe = FdPair::openPipe();
+    auto errPipe = FdPair::openPipe();
 
     int pid = ::fork();
 
@@ -106,25 +116,25 @@ int Command::runPipe()
         fatal("fork() failed");
     }
     if (pid == 0) { // child
-        while ((::dup2(outPipe[1], STDOUT_FILENO) == -1) && (errno == EINTR)) {
+        while ((::dup2(outPipe.entrance, STDOUT_FILENO) == -1) && (errno == EINTR)) {
         }
-        while ((::dup2(errPipe[1], STDERR_FILENO) == -1) && (errno == EINTR)) {
+        while ((::dup2(errPipe.entrance, STDERR_FILENO) == -1) && (errno == EINTR)) {
         }
-        ::close(outPipe[0]);
-        ::close(errPipe[0]);
+        ::close(outPipe.exit);
+        ::close(errPipe.exit);
 
         replaceProcessImage();
     }
 
     // parent
-    ::close(outPipe[1]);
-    ::close(errPipe[1]);
+    ::close(outPipe.entrance);
+    ::close(errPipe.entrance);
 
-    pumpFdToStream(outPipe[0], outStream());
-    ::close(outPipe[0]);
+    pumpFdToStream(outPipe.exit, outStream());
+    ::close(outPipe.exit);
 
-    pumpFdToStream(errPipe[0], errStream());
-    ::close(errPipe[0]);
+    pumpFdToStream(errPipe.exit, errStream());
+    ::close(errPipe.exit);
 
     return childExit(pid);
 }
