@@ -127,17 +127,17 @@ public:
         return etoRoot / "tmp" / "stages" / stage.name;
     }
 
-    void updateOe()
+    [[noreturn]] void updateOe()
     {
         Command("git", "fetch").setCurrentDir(etoRoot).run();
         Command("git", "pull").setCurrentDir(etoRoot).run();
         eto().args("oe", "update-layers")
                 .setCurrentDir(etoRoot)
                 .run();
-        // TODO(antonio): configure PTY so output isn't scrunched up
         Command(etoRoot / "bin" / "eto", "oe", "bitbake", "veo-sysroots", "root-image")
                 .setCurrentDir(etoRoot)
-                .run(RunMode::BlockPty);
+                .run(RunMode::ExecPty);
+        fatal("unreachable");
     }
 
     fs::path etoRoot;
@@ -212,7 +212,7 @@ public:
         Command("bash", "-c", std::move(cmd)).setCurrentDir(dir).run();
     }
 
-    void install()
+    [[noreturn]] void install()
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
@@ -227,7 +227,8 @@ public:
             c.args("-b", dir.string());
         };
 
-        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run(RunMode::BlockPty);
+        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run(RunMode::ExecPty);
+        fatal("unreachable");
     }
 
     void test()
@@ -289,7 +290,7 @@ public:
     }
 
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
-    void make(Begin begin, End end)
+    [[noreturn]] void make(Begin begin, End end)
     {
         if (!is_directory(dir)) {
             fatal("build dir doesn't exist");
@@ -300,7 +301,8 @@ public:
                 .setCurrentDir(dir)
                 .setDry(dryRun)
                 .setVerbose(dryRun)
-                .run(RunMode::BlockPty);
+                .run(RunMode::ExecPty);
+        fatal("unreachable");
     }
 
     void printStatus(std::ostream& str = std::cout) const
