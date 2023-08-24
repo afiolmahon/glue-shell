@@ -220,7 +220,6 @@ public:
         }
 
         auto c = oe.eto()
-                         .usePty()
                          .setDry(dryRun)
                          .setVerbose(verbose)
                          .args("stage", "-n", stage.name);
@@ -229,7 +228,7 @@ public:
             c.args("-b", dir.string());
         };
 
-        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run();
+        c.args("install", "-l28", "-j" + std::to_string(numThreads)).usePty().run();
     }
 
     void test()
@@ -247,9 +246,9 @@ public:
                 .args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string())
                 .setCurrentDir(dir)
                 .setVerbose(verbose)
-                .usePty()
                 .setDry(dryRun)
                 .args(begin, end)
+                .usePty()
                 .run();
 
         const fs::path link = repo.gitRoot / "compile_commands.json";
@@ -301,9 +300,9 @@ public:
                 .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
                 .args(begin, end)
                 .setCurrentDir(dir)
-                .usePty()
                 .setDry(dryRun)
                 .setVerbose(dryRun)
+                .usePty()
                 .run();
     }
 
