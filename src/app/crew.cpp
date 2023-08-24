@@ -231,11 +231,6 @@ public:
         fatal("unreachable");
     }
 
-    void test()
-    {
-        // TODO(antonio): make all && make test ARGS="-j30"
-    }
-
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
     void cmake(Begin begin, End end)
     {
@@ -305,6 +300,17 @@ public:
         fatal("unreachable");
     }
 
+    [[noreturn]] void test(bool build = true)
+    {
+        std::vector<std::string> args;
+        if (build) {
+            args.push_back("all");
+        }
+        args.push_back("test");
+        args.push_back("ARGS=\"-j" + std::to_string(numThreads) + "\"");
+        make(args.begin(), args.end());
+    }
+
     void printStatus(std::ostream& str = std::cout) const
     {
         str << "Stage:      " << toString(stage) << "\n"
@@ -330,6 +336,7 @@ constexpr const char* const helpText = R"(A DWIM wrapper for the eto utility
     set-stage <stage-name> - set the stage name associated with the current repo
     install - eto stage install the current build configuration
     mk <ARGS...> - invoke make with the current stage build configuration
+    test - build and run all tests
     targets - list make targets for the current stages build configuration
     status - print information about the current stage build configuration
     stage-prompt - print current stage name for use in a PS1 prompt. no output if stage is default
@@ -397,6 +404,9 @@ int main(int argc, char** argv)
             return 0;
         } else if (arg == "mk") {
             currentBuildConfig().make(++it, args.end());
+            return 0;
+        } else if (arg == "test") {
+            currentBuildConfig().test();
             return 0;
         } else if (arg == "targets") {
             currentBuildConfig().targets();
