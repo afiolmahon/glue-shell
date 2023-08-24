@@ -2,10 +2,12 @@
 
 #include <cstring>
 
+#include <fcntl.h>
 #include <pty.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utmp.h>
 
 namespace fs = std::filesystem;
 
@@ -100,6 +102,9 @@ int Command::run(RunMode mode)
     case RunMode::BlockPty:
         result = runPty();
         break;
+    case RunMode::ExecPty:
+        result = execPty();
+        break;
     }
 
     if (result != 0) {
@@ -148,6 +153,7 @@ int Command::runPipe()
     return childExit(pid);
 }
 
+// TODO(antonio): make this work as smoothly as execPty
 int Command::runPty()
 {
     int amaster{};
@@ -168,6 +174,16 @@ int Command::runPty()
     ::close(amaster);
 
     return childExit(pid);
+}
+
+[[noreturn]] int Command::execPty()
+{
+    // open the psuedoterminal
+    int fd = ::open("/dev/tty", 0);
+    ::login_tty(fd);
+
+    replaceProcessImage();
+    fatal("unreachable");
 }
 
 void Command::replaceProcessImage()

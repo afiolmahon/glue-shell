@@ -24,6 +24,7 @@ enum class OnError {
 enum class RunMode {
     Block,
     BlockPty,
+    ExecPty,
 };
 
 class [[nodiscard]] Command {
@@ -139,6 +140,8 @@ protected:
     int runPipe();
     /** Use a pty to receive child stdout */
     int runPty();
+    /** Replace the current process with the command */
+    [[noreturn]] int execPty();
 
     /** Called from the child process to replace the current process with the specified command */
     void replaceProcessImage();
