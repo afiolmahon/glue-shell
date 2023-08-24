@@ -137,8 +137,7 @@ public:
         // TODO(antonio): configure PTY so output isn't scrunched up
         Command(etoRoot / "bin" / "eto", "oe", "bitbake", "veo-sysroots", "root-image")
                 .setCurrentDir(etoRoot)
-                .usePty()
-                .run();
+                .run(RunMode::BlockPty);
     }
 
     fs::path etoRoot;
@@ -228,7 +227,7 @@ public:
             c.args("-b", dir.string());
         };
 
-        c.args("install", "-l28", "-j" + std::to_string(numThreads)).usePty().run();
+        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run(RunMode::BlockPty);
     }
 
     void test()
@@ -248,8 +247,7 @@ public:
                 .setVerbose(verbose)
                 .setDry(dryRun)
                 .args(begin, end)
-                .usePty()
-                .run();
+                .run(RunMode::BlockPty);
 
         const fs::path link = repo.gitRoot / "compile_commands.json";
         const fs::path target = dir / "compile_commands.json";
@@ -302,8 +300,7 @@ public:
                 .setCurrentDir(dir)
                 .setDry(dryRun)
                 .setVerbose(dryRun)
-                .usePty()
-                .run();
+                .run(RunMode::BlockPty);
     }
 
     void printStatus(std::ostream& str = std::cout) const

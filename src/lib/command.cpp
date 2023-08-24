@@ -72,7 +72,7 @@ struct FdPair {
 static_assert(sizeof(FdPair) == sizeof(int[2]));
 } // namespace
 
-int Command::run()
+int Command::run(RunMode mode)
 {
     // if verbose flag is set, print details about the command being executed
     if (m_verbose || m_dryRun) {
@@ -92,7 +92,16 @@ int Command::run()
         return 0;
     }
 
-    int result = m_usePty ? runPty() : runPipe();
+    int result{};
+    switch (mode) {
+    case RunMode::Block:
+        result = runPipe();
+        break;
+    case RunMode::BlockPty:
+        result = runPty();
+        break;
+    }
+
     if (result != 0) {
         switch (m_onError) {
         case OnError::Return:

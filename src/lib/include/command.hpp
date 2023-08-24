@@ -21,6 +21,11 @@ enum class OnError {
     Return,
 };
 
+enum class RunMode {
+    Block,
+    BlockPty,
+};
+
 class [[nodiscard]] Command {
 public:
     template <typename... Args>
@@ -105,14 +110,6 @@ public:
     }
     Command setErr(std::ostream& str) && { return std::move(this->setErr(str)); }
 
-    /** Control whether or not run() emulates a terminal device */
-    Command& usePty(bool use = true) &
-    {
-        m_usePty = use;
-        return *this;
-    }
-    Command usePty(bool use = true) && { return std::move(this->usePty(use)); }
-
     Command& onError(OnError onError) &
     {
         m_onError = onError;
@@ -121,7 +118,7 @@ public:
     Command onError(OnError onError) && { return std::move(this->onError(onError)); }
 
     /** Execute the child process, block until it finishes and return its exit code */
-    int run();
+    int run(RunMode mode = RunMode::Block);
 
     /** Report the command line as a string */
     std::string toString() const
@@ -161,7 +158,6 @@ private:
     OnError m_onError = OnError::Fatal;
     bool m_verbose{};
     bool m_dryRun{};
-    bool m_usePty{};
     std::string m_command;
     std::vector<std::string> m_args;
     std::optional<std::filesystem::path> m_cd;
