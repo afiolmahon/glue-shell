@@ -8,6 +8,9 @@
 #include <optional>
 #include <sstream>
 
+#include <fmt/format.h>
+#include <fmt/std.h>
+
 using namespace crew;
 namespace fs = std::filesystem;
 
@@ -155,13 +158,11 @@ std::string toString(const Stage::Type& type)
     case Stage::Type::CliArg:
         return "CliArg";
     }
-    return "Stage::Type("
-            + std::to_string(static_cast<std::underlying_type_t<Stage::Type>>(type))
-            + ")";
+    return fmt::format("Stage::Type({})", fmt::underlying(type));
 }
 std::string toString(const Stage& stage)
 {
-    return stage.name + " (" + toString(stage.type) + ")";
+    return fmt::format("{} ({})", stage.name, toString(stage.type));
 }
 
 /** Represents a build configuration */
@@ -182,21 +183,21 @@ public:
      * Helper for dry-run functionality which encapsulates
      * an action that potentially changes the state of the project
      */
-    template <typename ActionCallable>
-    [[nodiscard]] std::ostream& transaction(ActionCallable&& action)
+    template <typename ActionCallable, typename Error>
+    void transaction(ActionCallable&& action, Error&& error)
     {
         if (!dryRun) {
             action();
         }
 
         if (!dryRun && !verbose) {
-            static std::ofstream unusedStr("/dev/null");
-            return unusedStr;
+            return;
         }
 
         auto& str = std::cerr;
-        str << (dryRun ? "DRY: " : "LOG: ");
-        return str;
+        str << fmt::format("{:s}: {}\n",
+                dryRun ? "DRY" : "LOG",
+                std::forward<Error>(error));
     }
 
     // print to stdout
@@ -249,17 +250,19 @@ public:
         const fs::path target = dir / "compile_commands.json";
 
         if (is_symlink(link)) {
-            transaction([&link]() { remove(link); })
-                    << "removing " << link;
+            transaction(
+                    [&link]() { remove(link); },
+                    fmt::format("removing {}", link));
         };
 
-        transaction([&target, &link]() {
+        transaction(
+                [&target, &link]() {
                     if (!exists(link)) {
                         create_symlink(target, link);
                     } else {
                         std::cerr << "failed to update compile_commands symlink" << std::endl;
-                    } })
-                << "symlinking compile_commands to " << link << " from " << target;
+                    } },
+                fmt::format("symlinking compile_commands to {} from {}", link, target));
     }
 
     template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
@@ -273,8 +276,9 @@ public:
             fatal("build dir ", dir, " already exists");
         }
 
-        transaction([this]() { create_directories(dir); })
-                << "creating directory " << dir;
+        transaction(
+                [this]() { create_directories(dir); },
+                fmt::format("creating directory {}", dir));
 
         std::vector<std::string> args{"-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo"};
         if (repo.isVeobot() || repo.isCruft()) {
