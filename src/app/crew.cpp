@@ -179,12 +179,13 @@ public:
         }
     }
 
+    // TODO: support error handling so that BuildError exception will be caught/logged if verbose/dry after normal output?
     /**
      * Helper for dry-run functionality which encapsulates
      * an action that potentially changes the state of the project
      */
-    template <typename ActionCallable, typename Error>
-    void transaction(ActionCallable&& action, Error&& error)
+    template <typename ActionCallable, typename Description>
+    void transaction(ActionCallable&& action, Description&& description)
     {
         if (!dryRun) {
             action();
@@ -197,7 +198,7 @@ public:
         auto& str = std::cerr;
         str << fmt::format("{:s}: {}\n",
                 dryRun ? "DRY" : "LOG",
-                std::forward<Error>(error));
+                std::forward<Description>(description));
     }
 
     // print to stdout
