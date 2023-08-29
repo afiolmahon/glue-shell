@@ -8,6 +8,7 @@
 
 #include <concepts>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -99,14 +100,14 @@ public:
 
     Command& setOut(std::ostream& str) &
     {
-        m_outStream = str;
+        m_getOut = [&str]() -> std::ostream& { return str; };
         return *this;
     }
     Command setOut(std::ostream& str) && { return std::move(this->setOut(str)); }
 
     Command& setErr(std::ostream& str) &
     {
-        m_errStream = str;
+        m_getErr = [&str]() -> std::ostream& { return str; };
         return *this;
     }
     Command setErr(std::ostream& str) && { return std::move(this->setErr(str)); }
@@ -133,8 +134,8 @@ public:
     }
 
 protected:
-    std::ostream& outStream() { return m_outStream.get(); }
-    std::ostream& errStream() { return m_errStream.get(); }
+    std::ostream& outStream() { return m_getOut(); }
+    std::ostream& errStream() { return m_getErr(); }
 
     /** Use pipes to receive child stdout, stderr */
     int runPipe();
@@ -155,8 +156,13 @@ private:
     }
 
     // streams to populate with child process output
-    std::reference_wrapper<std::ostream> m_outStream = std::cout;
-    std::reference_wrapper<std::ostream> m_errStream = std::cerr;
+    std::function<std::ostream&()> m_getOut = []() -> std::ostream& {
+        return std::cout;
+    };
+
+    std::function<std::ostream&()> m_getErr = []() -> std::ostream& {
+        return std::cerr;
+    };
 
     OnError m_onError = OnError::Fatal;
     bool m_verbose{};
