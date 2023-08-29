@@ -154,6 +154,10 @@ int Command::runPipe()
 }
 
 // TODO(antonio): make this work as smoothly as execPty
+// this may help
+// https://gist.github.com/zmwangx/2bac2af9195cad47069419ccd9ee98d8
+// TODO test input side of psuedoterminal works
+// try this approach: https://rmathew.blogspot.com/2006/09/terminal-sickness.html
 int Command::runPty()
 {
     int amaster{};
@@ -168,8 +172,6 @@ int Command::runPty()
     }
 
     // parent
-    // TODO: support the input side of the psuedoterminal
-    // try this approach: https://rmathew.blogspot.com/2006/09/terminal-sickness.html
     pumpFdToStream(amaster, outStream());
     ::close(amaster);
 
