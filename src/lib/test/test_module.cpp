@@ -13,12 +13,16 @@ TEST(Module, ShModule)
     ModuleLoader loader("/home/antonio/src/crew/data");
     auto instance = loader.load("cmake");
 
-    std::stringstream err;
-    instance.command().setErr(err);
+    std::stringstream outStr;
+    std::stringstream errStr;
+    instance.command()
+            .setOut(outStr)
+            .setErr(errStr);
     EXPECT_EXIT(instance.command().run(RunMode::BlockPty),
             ExitedWithCode(1),
             "");
-    EXPECT_EQ(err.str(), "hello");
+    EXPECT_EQ(outStr.str(), "hello");
+    EXPECT_EQ(errStr.str(), "hello");
 }
 
 } // namespace crew
