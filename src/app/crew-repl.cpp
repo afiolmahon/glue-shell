@@ -12,6 +12,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+using crew::fatal;
+
 std::vector<std::string> tokenize(std::string in)
 {
     std::vector<std::string> tokens;
@@ -29,8 +31,8 @@ std::vector<std::string> tokenize(std::string in)
 }
 
 struct Param {
-    std::string type = "string";
-    std::function<bool(const std::string&)> validate = [](const std::string& s) { return !s.empty(); };
+    std::string type;
+    std::function<bool(const std::string&)> validate;
 };
 
 struct Command {
@@ -112,6 +114,30 @@ struct Parser {
         return result;
     }
 
+    void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
+    {
+        paramTypes[id] = Param{.type = id, .validate = validator};
+    }
+
+    void addCommand(const std::string& id, const std::vector<std::string>& paramIds)
+    {
+        std::vector<Param> params;
+        for (const auto& p : paramIds) {
+            // report error if param type doesn't exist
+            if (auto it = paramTypes.find(p); it != paramTypes.end()) {
+                params.push_back(it->second);
+                continue;
+            }
+            fatal(fmt::format("addCommand({}, {}) failed; invalid param id '{}'\n",
+                    id,
+                    fmt::join(paramIds, ", "),
+                    p));
+        }
+        commands.try_emplace(id, std::move(params));
+    }
+
+    /** Defines all parameters */
+    std::map<std::string, Param> paramTypes{};
     std::map<std::string, Command> commands{};
 };
 
@@ -123,32 +149,12 @@ int main(int argc, char** argv)
     outStr << "working dir is: " << std::filesystem::current_path() << std::endl;
 
     Parser p;
-
-    const Param string{
-            .type = "string",
-            .validate = [](const std::string& s) {
-                return !s.empty();
-            },
-    };
-
-    const Param file{
-            .type = "file",
-            .validate = [](const std::string& s) {
-                return std::filesystem::exists(s);
-            },
-    };
-
-    const Param dir{
-            .type = "dir",
-            .validate = [](const std::string& s) {
-                return std::filesystem::is_directory(s);
-            },
-    };
-
-    p.commands["print1"] = Command{.posParams = {string}};
-    p.commands["isfile"] = Command{.posParams = {file}};
-    p.commands["isdir"] = Command{.posParams = {dir}};
-    p.commands["print2"] = Command{.posParams = {Param(), Param()}};
+    p.addParam("string", [](const std::string& s) { return !s.empty(); });
+    p.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
+    p.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
+    p.addCommand("print1", {"string"});
+    p.addCommand("isfile", {"file"});
+    p.addCommand("isdir", {"directory"});
 
     while (true) {
         outStr << ">";
