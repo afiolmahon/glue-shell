@@ -42,12 +42,12 @@ struct Command {
 struct ParseResult {
     std::string commandName{};
     const Command* command = nullptr; // nullptr if no matching command exists
-    std::map<int, std::string> arg{};
+    std::vector<std::string> args;
     std::map<int, Param> argType{};
 
     size_t numArgs() const
     {
-        size_t result = arg.size();
+        size_t result = args.size();
         if (command != nullptr) {
             result = std::max(result, command->posParams.size());
         }
@@ -68,9 +68,11 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
     // we need to merge indices in command and arg, print all that exist
     for (int i = 0; i < v.numArgs(); ++i) {
         str << " ";
-        auto argIt = v.arg.find(i);
-        if (argIt != v.arg.end()) {
-            str << "[" << argIt->second << "]";
+
+        bool haveArgString = i < v.args.size();
+
+        if (haveArgString) {
+            str << "[" << v.args.at(i) << "]";
         } else {
             str << "(?):";
         }
@@ -82,8 +84,8 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
         }
 
         // if we have both, validate the arg
-        if (argIt != v.arg.end() && annIt != v.argType.end()) {
-            str << "<" << (annIt->second.validate(argIt->second) ? "Valid" : "Invalid") << ">";
+        if (haveArgString && annIt != v.argType.end()) {
+            str << "<" << (annIt->second.validate(v.args.at(i)) ? "Valid" : "Invalid") << ">";
         }
     }
     return str;
@@ -99,11 +101,7 @@ struct Parser {
         ParseResult result{};
         result.commandName = tokens.front();
         result.command = commandPtr(result.commandName);
-
-        // populate map of supplied args - 0 is first arg rather than command
-        for (int32_t i = 1; i < tokens.size(); ++i) {
-            result.arg[i - 1] = tokens[i];
-        }
+        result.args.assign(next(tokens.begin()), tokens.end());
 
         if (result.command != nullptr) {
             // move annotations into map
@@ -165,6 +163,7 @@ int main(int argc, char** argv)
     p.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
     p.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
     p.addCommand("print1", {"string"});
+    p.addCommand("print2", {"string", "string"});
     p.addCommand("isfile", {"file"});
     p.addCommand("isdir", {"directory"});
 
