@@ -117,7 +117,7 @@ struct Parser {
 
         ParseResult result{};
         result.commandName = tokens.front();
-        result.command = commandPtr(result.commandName);
+        result.command = findCommandPtr(result.commandName);
         result.args.assign(next(tokens.begin()), tokens.end());
 
         return result;
@@ -132,22 +132,22 @@ struct Parser {
     {
         std::vector<const Param*> params{};
         for (const auto& p : paramIds) {
-            params.push_back(paramPtr(p));
+            params.push_back(&getParam(p));
         }
         m_commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
     }
 
     /** get a stable pointer to a param definition */
-    const Param* paramPtr(const std::string& id)
+    const Param& getParam(const std::string& id)
     {
         if (auto it = m_params.find(id); it != m_params.end()) {
-            return &(*it->second);
+            return *it->second;
         }
         fatal("invalid param id ", id);
     }
 
-    /** get a stable pointer to a command definition */
-    const Command* commandPtr(const std::string& name)
+    /** get a stable pointer to a command definition, or nullptr if it doesnt exist */
+    const Command* findCommandPtr(const std::string& name)
     {
         if (auto it = m_commands.find(name); it != m_commands.end()) {
             return &(*it->second);
