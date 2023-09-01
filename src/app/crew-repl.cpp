@@ -42,9 +42,17 @@ struct Command {
 struct ParseResult {
     std::string commandName{};
     const Command* command = nullptr; // nullptr if no matching command exists
-    size_t numArgs{};
     std::map<int, std::string> arg{};
     std::map<int, Param> argType{};
+
+    size_t numArgs() const
+    {
+        size_t result = arg.size();
+        if (command != nullptr) {
+            result = std::max(result, command->posParams.size());
+        }
+        return result;
+    }
 };
 
 std::ostream& operator<<(std::ostream& str, const ParseResult& v)
@@ -58,7 +66,7 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
     str << "[" << v.commandName << "]" << (v.command != nullptr ? "CMD" : "?");
 
     // we need to merge indices in command and arg, print all that exist
-    for (int i = 0; i < v.numArgs; ++i) {
+    for (int i = 0; i < v.numArgs(); ++i) {
         str << " ";
         auto argIt = v.arg.find(i);
         if (argIt != v.arg.end()) {
@@ -92,18 +100,12 @@ struct Parser {
         result.commandName = tokens.front();
         result.command = commandPtr(result.commandName);
 
-        // determine if we have a valid command
-        auto commandDefIt = commands.find(result.commandName);
-
         // populate map of supplied args - 0 is first arg rather than command
         for (int32_t i = 1; i < tokens.size(); ++i) {
             result.arg[i - 1] = tokens[i];
         }
 
-        result.numArgs = tokens.size() - 1; // remove command from list
         if (result.command != nullptr) {
-            // upate numargs to handle if command expects more than supplied
-            result.numArgs = std::max(result.numArgs, result.command->posParams.size());
             // move annotations into map
             const auto& params = result.command->posParams;
             for (int32_t i = 0; i < params.size(); ++i) {
