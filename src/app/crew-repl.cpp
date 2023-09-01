@@ -35,21 +35,35 @@ struct Param {
     std::function<bool(const std::string&)> validate;
 };
 
-struct Command {
-    std::vector<Param> posParams;
+class Command {
+public:
+    size_t numParams() const { return m_posParams.size(); }
+    const Param& param(size_t argPos) const
+    {
+        auto ptr = m_posParams.at(argPos);
+        if (ptr == nullptr) {
+            fatal(fmt::format("no param at {:d}", argPos));
+        }
+        return *ptr;
+    }
+
+    Command(std::vector<const Param*> params) :
+        m_posParams(std::move(params)) {}
+
+private:
+    std::vector<const Param*> m_posParams;
 };
 
 struct ParseResult {
     std::string commandName{};
     const Command* command = nullptr; // nullptr if no matching command exists
     std::vector<std::string> args;
-    std::map<int, Param> argType{};
 
     size_t numArgs() const
     {
         size_t result = args.size();
         if (command != nullptr) {
-            result = std::max(result, command->posParams.size());
+            result = std::max(result, command->numParams());
         }
         return result;
     }
@@ -70,22 +84,25 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
         str << " ";
 
         bool haveArgString = i < v.args.size();
+        bool haveArgType = false;
+        if (v.command != nullptr) {
+            haveArgType = i < v.command->numParams();
+        }
 
         if (haveArgString) {
             str << "[" << v.args.at(i) << "]";
         } else {
             str << "(?):";
         }
-        auto annIt = v.argType.find(i);
-        if (annIt != v.argType.end()) {
-            str << annIt->second.type;
+        if (haveArgType) {
+            str << v.command->param(i).type;
         } else {
             str << "?";
         }
 
         // if we have both, validate the arg
-        if (haveArgString && annIt != v.argType.end()) {
-            str << "<" << (annIt->second.validate(v.args.at(i)) ? "Valid" : "Invalid") << ">";
+        if (haveArgString && haveArgType) {
+            str << "<" << (v.command->param(i).validate(v.args.at(i)) ? "Valid" : "Invalid") << ">";
         }
     }
     return str;
@@ -103,40 +120,33 @@ struct Parser {
         result.command = commandPtr(result.commandName);
         result.args.assign(next(tokens.begin()), tokens.end());
 
-        if (result.command != nullptr) {
-            // move annotations into map
-            const auto& params = result.command->posParams;
-            for (int32_t i = 0; i < params.size(); ++i) {
-                result.argType[i] = params.at(i);
-            }
-        }
-
         return result;
     }
 
     void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
     {
-        paramTypes[id] = std::make_unique<Param>(id, validator);
+        m_params[id] = std::make_unique<Param>(id, validator);
     }
 
     void addCommand(const std::string& id, const std::vector<std::string>& paramIds)
     {
-        std::vector<Param> params;
+        std::vector<const Param*> params{};
         for (const auto& p : paramIds) {
-            // report error if param type doesn't exist
-            if (auto it = paramTypes.find(p); it != paramTypes.end()) {
-                params.push_back(*it->second);
-                continue;
-            }
-            fatal(fmt::format("addCommand({}, {}) failed; invalid param id '{}'\n",
-                    id,
-                    fmt::join(paramIds, ", "),
-                    p));
+            params.push_back(paramPtr(p));
         }
         commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
     }
 
-    // get a stable pointer to a command definition
+    /** get a stable pointer to a param definition */
+    const Param* paramPtr(const std::string& id)
+    {
+        if (auto it = m_params.find(id); it != m_params.end()) {
+            return &(*it->second);
+        }
+        fatal("invalid param id ", id);
+    }
+
+    /** get a stable pointer to a command definition */
     const Command* commandPtr(const std::string& name)
     {
         if (auto it = commands.find(name); it != commands.end()) {
@@ -147,7 +157,7 @@ struct Parser {
 
     /** Defines all parameters */
 private:
-    std::map<std::string, std::unique_ptr<const Param>> paramTypes{};
+    std::map<std::string, std::unique_ptr<const Param>> m_params{};
     std::map<std::string, std::unique_ptr<const Command>> commands{};
 };
 
