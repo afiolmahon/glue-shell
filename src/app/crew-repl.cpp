@@ -41,7 +41,7 @@ struct Command {
 
 struct ParseResult {
     std::string commandName{};
-    bool isCommandValid{};
+    const Command* command = nullptr; // nullptr if no matching command exists
     size_t numArgs{};
     std::map<int, std::string> arg{};
     std::map<int, Param> argType{};
@@ -55,7 +55,7 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
     }
 
     // print command line
-    str << "[" << v.commandName << "]" << (v.isCommandValid ? "CMD" : "?");
+    str << "[" << v.commandName << "]" << (v.command != nullptr ? "CMD" : "?");
 
     // we need to merge indices in command and arg, print all that exist
     for (int i = 0; i < v.numArgs; ++i) {
@@ -90,6 +90,7 @@ struct Parser {
 
         ParseResult result{};
         result.commandName = tokens.front();
+        result.command = commandPtr(result.commandName);
 
         // determine if we have a valid command
         auto commandDefIt = commands.find(result.commandName);
@@ -100,12 +101,11 @@ struct Parser {
         }
 
         result.numArgs = tokens.size() - 1; // remove command from list
-        if (commandDefIt != commands.end()) {
-            result.isCommandValid = true;
+        if (result.command != nullptr) {
             // upate numargs to handle if command expects more than supplied
-            result.numArgs = std::max(result.numArgs, commandDefIt->second.posParams.size());
+            result.numArgs = std::max(result.numArgs, result.command->posParams.size());
             // move annotations into map
-            const auto& params = commandDefIt->second.posParams;
+            const auto& params = result.command->posParams;
             for (int32_t i = 0; i < params.size(); ++i) {
                 result.argType[i] = params.at(i);
             }
@@ -116,7 +116,7 @@ struct Parser {
 
     void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
     {
-        paramTypes[id] = Param{.type = id, .validate = validator};
+        paramTypes[id] = std::make_unique<Param>(id, validator);
     }
 
     void addCommand(const std::string& id, const std::vector<std::string>& paramIds)
@@ -125,7 +125,7 @@ struct Parser {
         for (const auto& p : paramIds) {
             // report error if param type doesn't exist
             if (auto it = paramTypes.find(p); it != paramTypes.end()) {
-                params.push_back(it->second);
+                params.push_back(*it->second);
                 continue;
             }
             fatal(fmt::format("addCommand({}, {}) failed; invalid param id '{}'\n",
@@ -133,12 +133,22 @@ struct Parser {
                     fmt::join(paramIds, ", "),
                     p));
         }
-        commands.try_emplace(id, std::move(params));
+        commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
+    }
+
+    // get a stable pointer to a command definition
+    const Command* commandPtr(const std::string& name)
+    {
+        if (auto it = commands.find(name); it != commands.end()) {
+            return &(*it->second);
+        }
+        return nullptr;
     }
 
     /** Defines all parameters */
-    std::map<std::string, Param> paramTypes{};
-    std::map<std::string, Command> commands{};
+private:
+    std::map<std::string, std::unique_ptr<const Param>> paramTypes{};
+    std::map<std::string, std::unique_ptr<const Command>> commands{};
 };
 
 int main(int argc, char** argv)
