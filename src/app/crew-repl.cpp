@@ -1,6 +1,9 @@
 
 #include "../lib/include/util.hpp"
+
+#include <functional>
 #include <iostream>
+#include <map>
 
 #include <fmt/format.h>
 #include <fmt/std.h>
@@ -9,64 +12,154 @@
 #include <termios.h>
 #include <unistd.h>
 
-/* Initialize new terminal i/o settings */
-static struct termios old, new1;
-void initTermios(int echo)
+std::vector<std::string> tokenize(std::string in)
 {
-    tcgetattr(0, &old); /* grab old terminal i/o settings */
-    new1 = old; /* make new settings same as old settings */
-    new1.c_lflag &= ~ICANON; /* disable buffered i/o */
-    new1.c_lflag &= echo ? ECHO : ~ECHO; /* set echo mode */
-    tcsetattr(0, TCSANOW, &new1); /* use these new terminal i/o settings now */
+    std::vector<std::string> tokens;
+
+    // stringstream class check1
+    std::stringstream check1(in);
+
+    std::string intermediate;
+
+    // Tokenizing w.r.t. space ' '
+    while (getline(check1, intermediate, ' ')) {
+        tokens.push_back(intermediate);
+    }
+    return tokens;
 }
 
-/* Restore old terminal i/o settings */
-void resetTermios(void)
+struct Param {
+    std::string type = "string";
+    std::function<bool(const std::string&)> validate = [](const std::string& s) { return !s.empty(); };
+};
+
+struct Command {
+    std::vector<Param> posParams;
+};
+
+struct ParseResult {
+    std::string commandName{};
+    bool isCommandValid{};
+    size_t numArgs{};
+    std::map<int, std::string> arg{};
+    std::map<int, Param> argType{};
+};
+
+std::ostream& operator<<(std::ostream& str, const ParseResult& v)
 {
-    tcsetattr(0, TCSANOW, &old);
+    if (v.commandName.empty()) {
+        str << "No command";
+        return str;
+    }
+
+    // print command line
+    str << "[" << v.commandName << "]" << (v.isCommandValid ? "CMD" : "?");
+
+    // we need to merge indices in command and arg, print all that exist
+    for (int i = 0; i < v.numArgs; ++i) {
+        str << " ";
+        auto argIt = v.arg.find(i);
+        if (argIt != v.arg.end()) {
+            str << "[" << argIt->second << "]";
+        } else {
+            str << "(?):";
+        }
+        auto annIt = v.argType.find(i);
+        if (annIt != v.argType.end()) {
+            str << annIt->second.type;
+        } else {
+            str << "?";
+        }
+
+        // if we have both, validate the arg
+        if (argIt != v.arg.end() && annIt != v.argType.end()) {
+            str << "<" << (annIt->second.validate(argIt->second) ? "Valid" : "Invalid") << ">";
+        }
+    }
+    return str;
 }
 
-enum class C0ControlCodes {
-    Bel = 0x07, // bell
-    Bs = 0x08, // backspace
-    Ht = 0x09, // tab
-    Lf = 0x0A, // linefeed
-    Ff = 0x0C, // formfeed
-    CR = 0x0D, // carriage return
-    Esc = 0x1B, // start escape sequence
+struct Parser {
+    std::optional<ParseResult> parseTokens(std::vector<std::string> tokens)
+    {
+        if (tokens.empty()) {
+            return {};
+        }
+
+        ParseResult result{};
+        result.commandName = tokens.front();
+
+        // determine if we have a valid command
+        auto commandDefIt = commands.find(result.commandName);
+
+        // populate map of supplied args - 0 is first arg rather than command
+        for (int32_t i = 1; i < tokens.size(); ++i) {
+            result.arg[i - 1] = tokens[i];
+        }
+
+        result.numArgs = tokens.size() - 1; // remove command from list
+        if (commandDefIt != commands.end()) {
+            result.isCommandValid = true;
+            // upate numargs to handle if command expects more than supplied
+            result.numArgs = std::max(result.numArgs, commandDefIt->second.posParams.size());
+            // move annotations into map
+            const auto& params = commandDefIt->second.posParams;
+            for (int32_t i = 0; i < params.size(); ++i) {
+                result.argType[i] = params.at(i);
+            }
+        }
+
+        return result;
+    }
+
+    std::map<std::string, Command> commands{};
 };
 
 int main(int argc, char** argv)
 {
-    char c;
-    initTermios(0);
-
     auto& outStr = std::cout;
-    auto& errStr = outStr;
 
-    outStr << "REPL:" << std::endl;
+    outStr << "Repl:" << std::endl;
+    outStr << "working dir is: " << std::filesystem::current_path() << std::endl;
 
-    const auto error = [](auto output) {
-        errStr << output;
-        errStr.flush();
+    Parser p;
+
+    const Param string{
+            .type = "string",
+            .validate = [](const std::string& s) {
+                return !s.empty();
+            },
     };
 
-    std::string lastLine{"<last>"};
-    std::string line{};
-    while (true) {
-        if (::read(0, &c, 1) == -1) {
-            crew::fatal("error");
-        }
-        // if (c >= 0 && c <= 127) { // ASCII range
-        // } else {
-        // }
-        outStr << fmt::format("{:x}\n", c);
-        outStr.flush();
+    const Param file{
+            .type = "file",
+            .validate = [](const std::string& s) {
+                return std::filesystem::exists(s);
+            },
+    };
 
-        // render
-        // write current prompt
-        // newline
-        // write next prompt
-        // move cursor up to line 1
+    const Param dir{
+            .type = "dir",
+            .validate = [](const std::string& s) {
+                return std::filesystem::is_directory(s);
+            },
+    };
+
+    p.commands["print1"] = Command{.posParams = {string}};
+    p.commands["isfile"] = Command{.posParams = {file}};
+    p.commands["isdir"] = Command{.posParams = {dir}};
+    p.commands["print2"] = Command{.posParams = {Param(), Param()}};
+
+    while (true) {
+        outStr << ">";
+        std::string in;
+        getline(std::cin, in);
+        auto tokens = tokenize(in);
+        if (auto parse = p.parseTokens(tokens)) {
+            outStr << *parse << "\n";
+        } else {
+            outStr << "NO COMMAND!\n";
+        }
+        outStr.flush();
     }
 }
