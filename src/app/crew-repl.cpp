@@ -134,7 +134,7 @@ struct Parser {
         for (const auto& p : paramIds) {
             params.push_back(paramPtr(p));
         }
-        commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
+        m_commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
     }
 
     /** get a stable pointer to a param definition */
@@ -149,7 +149,7 @@ struct Parser {
     /** get a stable pointer to a command definition */
     const Command* commandPtr(const std::string& name)
     {
-        if (auto it = commands.find(name); it != commands.end()) {
+        if (auto it = m_commands.find(name); it != m_commands.end()) {
             return &(*it->second);
         }
         return nullptr;
@@ -158,7 +158,7 @@ struct Parser {
     /** Defines all parameters */
 private:
     std::map<std::string, std::unique_ptr<const Param>> m_params{};
-    std::map<std::string, std::unique_ptr<const Command>> commands{};
+    std::map<std::string, std::unique_ptr<const Command>> m_commands{};
 };
 
 int main(int argc, char** argv)
