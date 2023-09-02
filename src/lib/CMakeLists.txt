@@ -1,6 +1,7 @@
 add_library(CrewLib STATIC
     command.cpp
     module.cpp
+    util.cpp
 )
 target_link_libraries(CrewLib
     PUBLIC

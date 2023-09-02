@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include <fmt/format.h>
 
@@ -34,5 +35,7 @@ inline std::string trim(std::string&& s)
     s.erase(0, s.find_first_not_of(ws)); // trim from beginning of string (left)
     return std::move(s);
 }
+
+std::vector<std::string> tokenize(std::string in);
 } // namespace crew
 #endif

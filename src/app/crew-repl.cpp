@@ -28,22 +28,6 @@ template <typename... Args>
     ::exit(1);
 }
 
-std::vector<std::string> tokenize(std::string in)
-{
-    std::vector<std::string> tokens;
-
-    // stringstream class check1
-    std::stringstream check1(in);
-
-    std::string intermediate;
-
-    // Tokenizing w.r.t. space ' '
-    while (getline(check1, intermediate, ' ')) {
-        tokens.push_back(intermediate);
-    }
-    return tokens;
-}
-
 struct VmParam {
     std::string type;
     std::function<bool(const std::string&)> validate;
@@ -223,7 +207,7 @@ int cookedRepl(Vm& vm, std::ostream& out)
         out << ">";
         std::string in;
         getline(std::cin, in);
-        auto tokens = tokenize(in);
+        auto tokens = crew::tokenize(in);
         if (auto parse = vm.parseTokens(tokens)) {
             out << *parse << "\n";
         } else {
