@@ -167,16 +167,23 @@ public:
         // disable:
         // - translation of \r to \n (CarriageReturnNewLine)
         // - software control flow (ctrl-s, ctrl-q)
-        raw.c_iflag &= ~(ICRNL | IXON);
+        raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
         // disable postprocessing (conversion of \n to \r\n)
         raw.c_oflag &= ~(OPOST);
+
+        raw.c_cflag |= (CS8);
+
         // disable by clearing bitfields:
         // - echo (draw characters as they are input)
         // - canonical mode (read bits as they appear on stdin)
         // - signals (ctrl-z, ctrl-c)
         // - literal escape (ctrl-V, ctrl-O)
         raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-        // disable canonical mode
+
+        // avoid blocking on read() by configuring a timeout
+        raw.c_cc[VMIN] = 0;
+        raw.c_cc[VTIME] = 1;
+
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
             fatal("failed to tcsetattr: {}", std::strerror(errno));
         }
@@ -222,16 +229,25 @@ int cookedRepl(Vm& vm, std::ostream& out)
     return 0;
 }
 
+/** Convert char to control keycode i.e. 'q' -> CTRL-Q */
+constexpr char ctrlKey(char k) { return k & 0x1F; }
+
 int rawRepl(Vm& vm, std::ostream& out)
 {
     RawTerminalRaii rawMode{};
 
     // assemble the output
     while (true) {
-        char c{};
-        if (::read(STDIN_FILENO, &c, 1) == -1) {
-            fatal("::read failed: {:s}", std::strerror(errno));
+        char c = '\0';
+        int r = ::read(STDIN_FILENO, &c, 1);
+        if (r == -1 && errno != EAGAIN) {
+            fatal("read() failed: {}", std::strerror(errno));
+        } else if (r == 0) {
+            // no characters arrived
+        } else {
         }
+
+
         if (c == 3) { // handle ctrl-c
             out << "exiting...\r\n";
             return 0;
@@ -240,6 +256,9 @@ int rawRepl(Vm& vm, std::ostream& out)
             printf("%d\r\n", c);
         } else {
             printf("%d ('%c')\r\n", c, c);
+        }
+        if (c == ctrlKey('q')) {
+            break;
         }
     }
     return 0;
