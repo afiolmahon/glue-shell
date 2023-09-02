@@ -280,10 +280,12 @@ void editorDrawRows()
 
 void editorRefreshScreen()
 {
+    write(STDOUT_FILENO, "\x1b[?25l", 6); // hide cursor
     write(STDOUT_FILENO, "\x1b[2J", 4); // clear entire screen
     write(STDOUT_FILENO, "\x1b[H", 3); // move cursor to top left
     editorDrawRows();
     write(STDOUT_FILENO, "\x1b[H", 3);
+    write(STDOUT_FILENO, "\x1b[?25h", 6); // show cursor
 }
 
 /** input */
