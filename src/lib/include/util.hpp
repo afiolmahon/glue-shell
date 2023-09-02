@@ -19,14 +19,6 @@ template <typename... Args>
     ::exit(1);
 }
 
-template <typename... Args>
-[[noreturn]] void fatalErrno(fmt::format_string<Args...> format, Args... args)
-{
-    std::cerr << fmt::format(format, std::forward<Args>(args)...)
-        << fmt::format(": {:s}", std::strerror(errno)) << std::endl;
-    ::exit(1);
-}
-
 /** trim from both ends of string (right then left) */
 inline std::string trim(std::string&& s)
 {
