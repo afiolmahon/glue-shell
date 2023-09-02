@@ -175,6 +175,7 @@ void editorDrawRows(std::string& buffer)
     for (int y = 0; y < state.winSize.y; ++y) {
         buffer.append("~");
 
+        buffer.append("\x1b[K");// clear the current line
         if (y < state.winSize.y) {
             buffer.append("\r\n");
         }
@@ -186,7 +187,6 @@ void editorRefreshScreen()
 {
     std::string buffer;
     buffer.append("\x1b[?25l"); // hide cursor
-    buffer.append("\x1b[2J"); // clear entire screen
     buffer.append("\x1b[H"); // move cursor to top left
     editorDrawRows(buffer);
     buffer.append("\x1b[H");
