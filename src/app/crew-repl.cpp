@@ -14,6 +14,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <sys/ioctl.h>
+
 using crew::fatal;
 
 template <typename... Args>
@@ -163,6 +165,8 @@ private:
 /** data */
 
 struct EditorConfig {
+    /** cols, rows (x, y) */
+    std::pair<int, int> winSize{};
     struct termios origTermios;
 };
 
@@ -247,6 +251,16 @@ char readKey()
     return c;
 }
 
+std::optional<std::pair<int, int>> getWindowSize()
+{
+    // TODO: fallback method for systems where ioctl won't work
+    struct winsize ws{};
+    if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
+        return std::nullopt;
+    }
+    return std::make_pair<int, int>(ws.ws_col, ws.ws_row);
+}
+
 // TODO: on death, we should clear screen and reposition cursor
 
 /** output */
@@ -254,8 +268,13 @@ char readKey()
 void editorDrawRows()
 {
     int y = 0;
-    for (; y < 24; ++y) {
-        write(STDOUT_FILENO, "~\r\n", 3);
+    for (; y < state.winSize.second; ++y) {
+        write(STDOUT_FILENO, "~", 1);
+
+        if (y < state.winSize.second) {
+            write(STDOUT_FILENO, "\r\n", 2);
+        }
+
     }
 }
 
@@ -281,9 +300,20 @@ void processKeypress()
     }
 }
 
+/** init */
+
+void initEditor() {
+    auto ws = getWindowSize();
+    if (!ws) {
+        die("getWindowSize");
+    }
+    state.winSize = *ws;
+}
+
 int rawRepl(Vm& vm, std::ostream& out)
 {
     enterRawMode();
+    initEditor();
 
     while (1) {
         editorRefreshScreen();
