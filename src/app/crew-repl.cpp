@@ -160,6 +160,8 @@ private:
     std::map<std::string, std::unique_ptr<const VmCommand>> m_commands{};
 };
 
+/** data */
+
 struct EditorConfig {
     struct termios origTermios;
 };
@@ -267,11 +269,6 @@ void editorRefreshScreen()
 
 /** input */
 
-class QuitEditor : public std::exception {
-public:
-    using std::exception::exception;
-};
-
 void processKeypress()
 {
     char c = readKey();
@@ -295,6 +292,7 @@ int rawRepl(Vm& vm, std::ostream& out)
 
     return 0;
 }
+
 
 int main(int argc, char** argv)
 {
