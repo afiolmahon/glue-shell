@@ -2,6 +2,7 @@
 #include "../lib/include/util.hpp"
 
 #include <functional>
+#include <sstream>
 #include <iostream>
 #include <map>
 
@@ -113,7 +114,7 @@ public:
 
     void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
     {
-        m_params[id] = std::make_unique<VmParam>(id, validator);
+        m_params[id] = std::make_unique<VmParam>(VmParam{id, validator});
     }
 
     void addCommand(const std::string& id, const std::vector<std::string>& paramIds)

@@ -233,7 +233,7 @@ public:
         fatal("unreachable");
     }
 
-    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    template <typename Begin, typename End>
     void cmake(Begin begin, End end)
     {
         if (!is_directory(dir)) {
@@ -266,7 +266,7 @@ public:
                 fmt::format("symlinking compile_commands to {} from {}", link, target));
     }
 
-    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    template <typename Begin, typename End>
     void cmakeInit(Begin begin, End end)
     {
         if (!repo.isCmakeProject()) {
@@ -289,7 +289,7 @@ public:
         cmake(args.begin(), args.end());
     }
 
-    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    template <typename Begin, typename End>
     [[noreturn]] void make(Begin begin, End end)
     {
         if (!is_directory(dir)) {

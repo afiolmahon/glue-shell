@@ -34,15 +34,14 @@ void from_json(const nlohmann::json& j, ModuleConfig::Arg& v)
 
 ModuleConfig::ArgKind argKindFromString(const std::string& str)
 {
-    using enum ModuleConfig::ArgKind;
     if (str == "Environment") {
-        return EnvVar;
+        return ModuleConfig::ArgKind::EnvVar;
     }
     if (str == "StringLiteral") {
-        return StringLiteral;
+        return ModuleConfig::ArgKind::StringLiteral;
     }
     if (str == "BuiltIn") {
-        return BuiltIn;
+        return ModuleConfig::ArgKind::BuiltIn;
     }
     fatal("unknown arg kind: ", str);
 }

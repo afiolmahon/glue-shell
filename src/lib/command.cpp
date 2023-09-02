@@ -3,11 +3,11 @@
 #include <cstring>
 
 #include <fcntl.h>
-#include <pty.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <utmp.h>
+#include <util.h>
 
 namespace fs = std::filesystem;
 

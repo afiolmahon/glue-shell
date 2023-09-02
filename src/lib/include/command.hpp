@@ -37,20 +37,20 @@ public:
         args(std::forward<Args>(arguments)...);
     }
 
-    template <std::convertible_to<std::string> First, typename... Rest>
+    template <typename First, typename... Rest, std::enable_if_t<std::is_convertible_v<First, std::string>, int> = 0>
     Command& args(First&& first, Rest&&... rest) &
     {
         m_args.emplace_back(std::forward<First>(first));
         args<Rest...>(std::forward<Rest>(rest)...);
         return *this;
     }
-    template <std::convertible_to<std::string> First, typename... Rest>
+    template <typename First, typename... Rest, std::enable_if_t<std::is_convertible_v<First, std::string>, int> = 0>
     Command args(First&& first, Rest&&... rest) &&
     {
         return std::move(this->args(std::forward<First>(first), std::forward<Rest>(rest)...));
     }
 
-    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    template <typename Begin, typename End, typename = typename Begin::value_type>
     Command& args(Begin begin, End end) &
     {
         for (auto it = begin; it != end; ++it) {
@@ -58,7 +58,7 @@ public:
         }
         return *this;
     }
-    template <InputIteratorOf<std::string> Begin, std::sentinel_for<Begin> End>
+    template <typename Begin, typename End, typename = typename Begin::value_type>
     Command args(Begin begin, End end) &&
     {
         return std::move(this->args(begin, end));
