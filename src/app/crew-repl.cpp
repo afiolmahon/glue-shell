@@ -31,9 +31,13 @@ template <typename... Args>
 
 /** data */
 
+struct Position {
+    int x{};
+    int y{};
+};
+
 struct EditorConfig {
-    /** cols, rows (x, y) */
-    std::pair<int, int> winSize{};
+    Position winSize{};
     struct termios origTermios;
 };
 
@@ -118,14 +122,14 @@ char readKey()
     return c;
 }
 
-std::optional<std::pair<int, int>> getWindowSize()
+std::optional<Position> getWindowSize()
 {
     // TODO: fallback method for systems where ioctl won't work
     struct winsize ws{};
     if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
         return std::nullopt;
     }
-    return std::make_pair<int, int>(ws.ws_col, ws.ws_row);
+    return Position{ws.ws_col, ws.ws_row};
 }
 
 // TODO: on death, we should clear screen and reposition cursor
@@ -135,10 +139,10 @@ std::optional<std::pair<int, int>> getWindowSize()
 void editorDrawRows()
 {
     int y = 0;
-    for (; y < state.winSize.second; ++y) {
+    for (; y < state.winSize.y; ++y) {
         write(STDOUT_FILENO, "~", 1);
 
-        if (y < state.winSize.second) {
+        if (y < state.winSize.y) {
             write(STDOUT_FILENO, "\r\n", 2);
         }
 
