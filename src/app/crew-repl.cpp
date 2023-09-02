@@ -172,8 +172,22 @@ std::optional<Position> getWindowSize()
 
 void editorDrawRows(std::string& buffer)
 {
+    const static std::string welcome("crew interpreter - ctrl-q to quit");
     for (int y = 0; y < state.winSize.y; ++y) {
-        buffer.append("~");
+        // draw welcome 1/3 down the screen
+        if (y == state.winSize.y / 3) {
+            const int welcomeLen = std::min(static_cast<int32_t>(welcome.size()), state.winSize.x);
+            int padding = (state.winSize.x - welcomeLen) / 2;
+            if (padding != 0) {
+                buffer.append("~");
+                --padding;
+            }
+            buffer.append(padding, ' ');
+            // append, but truncate welcome to the length of the row
+            buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
+        } else {
+            buffer.append("~");
+        }
 
         buffer.append("\x1b[K");// clear the current line
         if (y < state.winSize.y) {
