@@ -122,12 +122,46 @@ char readKey()
     return c;
 }
 
+std::optional<Position> getCursorPos()
+{
+    std::array<char, 32> buf;
+    uint32_t i{};
+
+    if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) {
+        return {};
+    }
+
+    while (i < buf.size() - 1) {
+        if (read(STDIN_FILENO, &buf[i], 1) != 1) {
+            break;
+        }
+        if (buf[i] == 'R') {
+            break;
+        }
+        ++i;
+    }
+    buf[i] = '\0';
+
+    if (buf[0] != '\x1b' || buf[1] != '[') {
+        return {};
+    }
+
+    Position pos{};
+    if (sscanf(&buf[2], "%d;%d", &pos.y, &pos.x) != 2) {
+        return {};
+    }
+    return pos;
+}
+
 std::optional<Position> getWindowSize()
 {
-    // TODO: fallback method for systems where ioctl won't work
     struct winsize ws{};
-    if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
-        return std::nullopt;
+    if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+        // fallback if ioctl basde lookup fails
+        if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
+            return {};
+        }
+        return getCursorPos();
     }
     return Position{ws.ws_col, ws.ws_row};
 }
