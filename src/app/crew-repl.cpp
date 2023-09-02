@@ -170,14 +170,13 @@ std::optional<Position> getWindowSize()
 
 /** output */
 
-void editorDrawRows()
+void editorDrawRows(std::string& buffer)
 {
-    int y = 0;
-    for (; y < state.winSize.y; ++y) {
-        write(STDOUT_FILENO, "~", 1);
+    for (int y = 0; y < state.winSize.y; ++y) {
+        buffer.append("~");
 
         if (y < state.winSize.y) {
-            write(STDOUT_FILENO, "\r\n", 2);
+            buffer.append("\r\n");
         }
 
     }
@@ -185,12 +184,15 @@ void editorDrawRows()
 
 void editorRefreshScreen()
 {
-    write(STDOUT_FILENO, "\x1b[?25l", 6); // hide cursor
-    write(STDOUT_FILENO, "\x1b[2J", 4); // clear entire screen
-    write(STDOUT_FILENO, "\x1b[H", 3); // move cursor to top left
-    editorDrawRows();
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    write(STDOUT_FILENO, "\x1b[?25h", 6); // show cursor
+    std::string buffer;
+    buffer.append("\x1b[?25l"); // hide cursor
+    buffer.append("\x1b[2J"); // clear entire screen
+    buffer.append("\x1b[H"); // move cursor to top left
+    editorDrawRows(buffer);
+    buffer.append("\x1b[H");
+    buffer.append("\x1b[?25h"); // show cursor
+
+    write(STDOUT_FILENO, buffer.c_str(), buffer.length());
 }
 
 /** input */
