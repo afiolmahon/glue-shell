@@ -16,6 +16,16 @@
 
 using crew::fatal;
 
+template <typename... Args>
+[[noreturn]] void die(fmt::format_string<Args...> format, Args... args)
+{
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    std::cerr << fmt::format(format, std::forward<Args>(args)...)
+        << fmt::format(": {:s}", std::strerror(errno)) << std::endl;
+    ::exit(1);
+}
+
 std::vector<std::string> tokenize(std::string in)
 {
     std::vector<std::string> tokens;
@@ -150,65 +160,54 @@ private:
     std::map<std::string, std::unique_ptr<const VmCommand>> m_commands{};
 };
 
-/**
- * RAII raw terminal mode wrapper based on
- * https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html
- */
-class RawTerminalRaii {
-public:
-    /** Puts terminal into raw input mode */
-    RawTerminalRaii()
-    {
-        if (tcgetattr(STDIN_FILENO, &m_orig) == -1) {
-            fatal("failed to tcgetattr: {}", std::strerror(errno));
-        }
-
-        struct termios raw = m_orig;
-        // disable:
-        // - translation of \r to \n (CarriageReturnNewLine)
-        // - software control flow (ctrl-s, ctrl-q)
-        raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-        // disable postprocessing (conversion of \n to \r\n)
-        raw.c_oflag &= ~(OPOST);
-
-        raw.c_cflag |= (CS8);
-
-        // disable by clearing bitfields:
-        // - echo (draw characters as they are input)
-        // - canonical mode (read bits as they appear on stdin)
-        // - signals (ctrl-z, ctrl-c)
-        // - literal escape (ctrl-V, ctrl-O)
-        raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-
-        // avoid blocking on read() by configuring a timeout
-        raw.c_cc[VMIN] = 0;
-        raw.c_cc[VTIME] = 1;
-
-        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
-            fatal("failed to tcsetattr: {}", std::strerror(errno));
-        }
-    }
-
-    /** no copy */
-    RawTerminalRaii(const RawTerminalRaii&) = delete;
-    RawTerminalRaii& operator=(const RawTerminalRaii&) = delete;
-    /** no move */
-    RawTerminalRaii(RawTerminalRaii&&) = delete;
-    RawTerminalRaii& operator=(RawTerminalRaii&&) = delete;
-
-    /** Restore the terminal to its original state */
-    // TODO: registering an atexit(*void()) handler
-    // is likely more robust as abort() may circumvent RAII
-    ~RawTerminalRaii()
-    {
-        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &m_orig) == -1) {
-            fatal("failed to tcsetattr: {}", std::strerror(errno));
-        }
-    }
-
-private:
-    struct termios m_orig {};
+struct EditorConfig {
+    struct termios origTermios;
 };
+
+static EditorConfig state;
+
+/** Restore the terminal to its original state */
+void exitRawMode()
+{
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &state.origTermios) == -1) {
+        fatal("failed to tcsetattr: {}", std::strerror(errno));
+    }
+}
+
+void enterRawMode()
+{
+    if (tcgetattr(STDIN_FILENO, &state.origTermios) == -1) {
+        fatal("failed to tcgetattr: {}", std::strerror(errno));
+    }
+
+    struct termios raw = state.origTermios;
+    // disable:
+    // - translation of \r to \n (CarriageReturnNewLine)
+    // - software control flow (ctrl-s, ctrl-q)
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    // disable postprocessing (conversion of \n to \r\n)
+    raw.c_oflag &= ~(OPOST);
+
+    raw.c_cflag |= (CS8);
+
+    // disable by clearing bitfields:
+    // - echo (draw characters as they are input)
+    // - canonical mode (read bits as they appear on stdin)
+    // - signals (ctrl-z, ctrl-c)
+    // - literal escape (ctrl-V, ctrl-O)
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
+    // avoid blocking on read() by configuring a timeout
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 1;
+
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+        fatal("failed to tcsetattr: {}", std::strerror(errno));
+    }
+
+    // setup atexit handler to restore original terminal on exit
+    ::atexit(exitRawMode);
+}
 
 int cookedRepl(Vm& vm, std::ostream& out)
 {
@@ -232,35 +231,68 @@ int cookedRepl(Vm& vm, std::ostream& out)
 /** Convert char to control keycode i.e. 'q' -> CTRL-Q */
 constexpr char ctrlKey(char k) { return k & 0x1F; }
 
-int rawRepl(Vm& vm, std::ostream& out)
+/** terminal */
+
+char readKey()
 {
-    RawTerminalRaii rawMode{};
-
-    // assemble the output
-    while (true) {
-        char c = '\0';
-        int r = ::read(STDIN_FILENO, &c, 1);
-        if (r == -1 && errno != EAGAIN) {
-            fatal("read() failed: {}", std::strerror(errno));
-        } else if (r == 0) {
-            // no characters arrived
-        } else {
-        }
-
-
-        if (c == 3) { // handle ctrl-c
-            out << "exiting...\r\n";
-            return 0;
-        }
-        if (iscntrl(c)) {
-            printf("%d\r\n", c);
-        } else {
-            printf("%d ('%c')\r\n", c, c);
-        }
-        if (c == ctrlKey('q')) {
-            break;
+    int nread{};
+    char c{};
+    while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
+        if (nread == -1 && errno != EAGAIN) {
+            die("read");
         }
     }
+    return c;
+}
+
+// TODO: on death, we should clear screen and reposition cursor
+
+/** output */
+
+void editorDrawRows()
+{
+    int y = 0;
+    for (; y < 24; ++y) {
+        write(STDOUT_FILENO, "~\r\n", 3);
+    }
+}
+
+void editorRefreshScreen()
+{
+    write(STDOUT_FILENO, "\x1b[2J", 4); // clear entire screen
+    write(STDOUT_FILENO, "\x1b[H", 3); // move cursor to top left
+    editorDrawRows();
+    write(STDOUT_FILENO, "\x1b[H", 3);
+}
+
+/** input */
+
+class QuitEditor : public std::exception {
+public:
+    using std::exception::exception;
+};
+
+void processKeypress()
+{
+    char c = readKey();
+    switch (c) {
+    case ctrlKey('q'):
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+        write(STDOUT_FILENO, "\x1b[H", 3);
+        ::exit(0);
+        break;
+    }
+}
+
+int rawRepl(Vm& vm, std::ostream& out)
+{
+    enterRawMode();
+
+    while (1) {
+        editorRefreshScreen();
+        processKeypress();
+    }
+
     return 0;
 }
 
