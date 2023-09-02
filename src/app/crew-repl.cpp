@@ -149,8 +149,51 @@ private:
     std::map<std::string, std::unique_ptr<const VmCommand>> m_commands{};
 };
 
+/**
+ * RAII raw terminal mode wrapper based on
+ * https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html
+ */
+class RawTerminalRaii {
+public:
+    /** Puts terminal into raw input mode */
+    RawTerminalRaii()
+    {
+        if (tcgetattr(STDIN_FILENO, &m_orig) == -1) {
+            fatal("failed to tcgetattr: {}", std::strerror(errno));
+        }
+
+        struct termios raw = m_orig;
+        // disable echo, canonical mode
+        raw.c_lflag &= ~(ECHO | ICANON);
+        // disable canonical mode
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+            fatal("failed to tcsetattr: {}", std::strerror(errno));
+        }
+    }
+
+    /** no copy */
+    RawTerminalRaii(const RawTerminalRaii&) = delete;
+    RawTerminalRaii& operator=(const RawTerminalRaii&) = delete;
+    /** no move */
+    RawTerminalRaii(RawTerminalRaii&&) = delete;
+    RawTerminalRaii& operator=(RawTerminalRaii&&) = delete;
+
+    /** Restore the terminal to its original state */
+    ~RawTerminalRaii()
+    {
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &m_orig) == -1) {
+            fatal("failed to tcsetattr: {}", std::strerror(errno));
+        }
+    }
+
+private:
+    struct termios m_orig {};
+};
+
 int main(int argc, char** argv)
 {
+    // RawTerminalRaii rawMode{};
+
     auto& outStr = std::cout;
 
     outStr << "Repl:" << std::endl;
@@ -171,6 +214,21 @@ int main(int argc, char** argv)
         std::string in;
         getline(std::cin, in);
         auto tokens = tokenize(in);
+
+        // assemble the output
+        // while (true) {
+        //     char c{};
+        //     if (int r = ::read(STDIN_FILENO, &c, 1); r == -1) {
+        //         fatal("::read failed: {:s}", std::strerror(errno));
+        //     }
+        //     if (iscntrl(c)) {
+        //         printf("%d\n", c);
+        //     } else {
+        //         line.push_back(c);
+        //         printf("%d ('%c')\n", c, c);
+        //     }
+        // }
+
         if (auto parse = vm.parseTokens(tokens)) {
             outStr << *parse << "\n";
         } else {
