@@ -8,14 +8,14 @@
 #include <ranges>
 #include <string>
 
+#include <fmt/format.h>
+
 namespace crew {
 
-template <typename... T>
-[[noreturn]] void fatal(T... args)
+template <typename... Args>
+[[noreturn]] void fatal(fmt::format_string<Args...> format, Args... args)
 {
-    std::cerr << "error: ";
-    ((std::cerr << args), ...);
-    std::cerr << "\n";
+    std::cerr << fmt::format(format, std::forward<Args>(args)...) << std::endl;
     ::exit(1);
 }
 

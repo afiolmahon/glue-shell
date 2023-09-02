@@ -274,7 +274,7 @@ public:
         }
 
         if (exists(dir)) {
-            fatal("build dir ", dir, " already exists");
+            fatal("build dir {} already exists", dir);
         }
 
         transaction(
@@ -421,7 +421,7 @@ int main(int argc, char** argv)
             return 0;
         } else if (arg == "set-stage") {
             if (dryRun) { // TODO: dry run support
-                fatal(arg, " doesn't support dry run");
+                fatal("{:s} doesn't support dry run", arg);
             }
             std::optional<Repo> repo = Repo::current();
             if (!repo.has_value()) {
@@ -443,7 +443,7 @@ int main(int argc, char** argv)
             return 0;
         } else if (arg == "update-oe") {
             if (dryRun) { // TODO: dry run support
-                fatal(arg, " doesn't support dry run");
+                fatal("{:s} doesn't support dry run", arg);
             }
             auto oe = VeoOe::find();
             if (!oe.has_value()) {
@@ -452,7 +452,7 @@ int main(int argc, char** argv)
             oe->updateOe();
             return 0;
         } else {
-            fatal("unknown argument ", quoted(arg));
+            fatal("unknown argument \"{:s}\"", arg);
         }
     }
     return 0;

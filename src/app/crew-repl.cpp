@@ -42,7 +42,7 @@ public:
     {
         auto ptr = m_posParams.at(argPos);
         if (ptr == nullptr) {
-            fatal(fmt::format("no param at {:d}", argPos));
+            fatal("no param at {:d}", argPos);
         }
         return *ptr;
     }
@@ -132,7 +132,7 @@ public:
         if (auto it = m_params.find(id); it != m_params.end()) {
             return *it->second;
         }
-        fatal("invalid param id ", id);
+        fatal("invalid param id {:s}", id);
     }
 
     /** get a stable pointer to a command definition, or nullptr if it doesnt exist */

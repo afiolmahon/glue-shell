@@ -18,7 +18,7 @@ int childExit(int pid)
 {
     int status{};
     if (::waitpid(pid, &status, 0) == -1) {
-        fatal("waitpid failed: ", std::strerror(errno));
+        fatal("waitpid failed: {}", std::strerror(errno));
     }
 
     if (!WIFEXITED(status)) {
