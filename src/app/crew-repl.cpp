@@ -30,15 +30,15 @@ std::vector<std::string> tokenize(std::string in)
     return tokens;
 }
 
-struct Param {
+struct VmParam {
     std::string type;
     std::function<bool(const std::string&)> validate;
 };
 
-class Command {
+class VmCommand {
 public:
     size_t numParams() const { return m_posParams.size(); }
-    const Param& param(size_t argPos) const
+    const VmParam& param(size_t argPos) const
     {
         auto ptr = m_posParams.at(argPos);
         if (ptr == nullptr) {
@@ -47,16 +47,16 @@ public:
         return *ptr;
     }
 
-    Command(std::vector<const Param*> params) :
+    VmCommand(std::vector<const VmParam*> params) :
         m_posParams(std::move(params)) {}
 
 private:
-    std::vector<const Param*> m_posParams;
+    std::vector<const VmParam*> m_posParams;
 };
 
-struct ParseResult {
+struct VmResult {
     std::string commandName{};
-    const Command* command = nullptr; // nullptr if no matching command exists
+    const VmCommand* command = nullptr; // nullptr if no matching command exists
     std::vector<std::string> args;
 
     size_t numArgs() const
@@ -69,36 +69,24 @@ struct ParseResult {
     }
 };
 
-std::ostream& operator<<(std::ostream& str, const ParseResult& v)
+std::ostream& operator<<(std::ostream& str, const VmResult& v)
 {
-    if (v.commandName.empty()) {
-        str << "No command";
-        return str;
-    }
-
-    // print command line
-    str << "[" << v.commandName << "]" << (v.command != nullptr ? "CMD" : "?");
+    str << fmt::format("[{:s}]{}", v.commandName, (v.command != nullptr ? "CMD" : "?"));
 
     // we need to merge indices in command and arg, print all that exist
     for (int i = 0; i < v.numArgs(); ++i) {
-        str << " ";
-
-        bool haveArgString = i < v.args.size();
-        bool haveArgType = false;
+        const bool haveArgString = i < v.args.size();
+        bool haveArgType = v.command != nullptr ? i < v.command->numParams()
+                                                : false;
         if (v.command != nullptr) {
             haveArgType = i < v.command->numParams();
         }
 
-        if (haveArgString) {
-            str << "[" << v.args.at(i) << "]";
-        } else {
-            str << "(?):";
-        }
-        if (haveArgType) {
-            str << v.command->param(i).type;
-        } else {
-            str << "?";
-        }
+        bool isValid = haveArgString && haveArgType && v.command->param(i).validate(v.args.at(i));
+
+        str << fmt::format(" [{:s}]: {:s}",
+                haveArgString ? v.args.at(i) : "?",
+                haveArgType ? v.command->param(i).type : "?");
 
         // if we have both, validate the arg
         if (haveArgString && haveArgType) {
@@ -108,14 +96,15 @@ std::ostream& operator<<(std::ostream& str, const ParseResult& v)
     return str;
 }
 
-struct Parser {
-    std::optional<ParseResult> parseTokens(std::vector<std::string> tokens)
+class Vm {
+public:
+    std::optional<VmResult> parseTokens(std::vector<std::string> tokens)
     {
         if (tokens.empty()) {
             return {};
         }
 
-        ParseResult result{};
+        VmResult result{};
         result.commandName = tokens.front();
         result.command = findCommandPtr(result.commandName);
         result.args.assign(next(tokens.begin()), tokens.end());
@@ -125,20 +114,20 @@ struct Parser {
 
     void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
     {
-        m_params[id] = std::make_unique<Param>(id, validator);
+        m_params[id] = std::make_unique<VmParam>(id, validator);
     }
 
     void addCommand(const std::string& id, const std::vector<std::string>& paramIds)
     {
-        std::vector<const Param*> params{};
+        std::vector<const VmParam*> params{};
         for (const auto& p : paramIds) {
             params.push_back(&getParam(p));
         }
-        m_commands.try_emplace(id, std::make_unique<Command>(std::move(params)));
+        m_commands.try_emplace(id, std::make_unique<VmCommand>(std::move(params)));
     }
 
     /** get a stable pointer to a param definition */
-    const Param& getParam(const std::string& id)
+    const VmParam& getParam(const std::string& id)
     {
         if (auto it = m_params.find(id); it != m_params.end()) {
             return *it->second;
@@ -147,7 +136,7 @@ struct Parser {
     }
 
     /** get a stable pointer to a command definition, or nullptr if it doesnt exist */
-    const Command* findCommandPtr(const std::string& name)
+    const VmCommand* findCommandPtr(const std::string& name)
     {
         if (auto it = m_commands.find(name); it != m_commands.end()) {
             return &(*it->second);
@@ -157,8 +146,8 @@ struct Parser {
 
     /** Defines all parameters */
 private:
-    std::map<std::string, std::unique_ptr<const Param>> m_params{};
-    std::map<std::string, std::unique_ptr<const Command>> m_commands{};
+    std::map<std::string, std::unique_ptr<const VmParam>> m_params{};
+    std::map<std::string, std::unique_ptr<const VmCommand>> m_commands{};
 };
 
 int main(int argc, char** argv)
@@ -168,21 +157,22 @@ int main(int argc, char** argv)
     outStr << "Repl:" << std::endl;
     outStr << "working dir is: " << std::filesystem::current_path() << std::endl;
 
-    Parser p;
-    p.addParam("string", [](const std::string& s) { return !s.empty(); });
-    p.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
-    p.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
-    p.addCommand("print1", {"string"});
-    p.addCommand("print2", {"string", "string"});
-    p.addCommand("isfile", {"file"});
-    p.addCommand("isdir", {"directory"});
+    Vm vm;
+    vm.addParam("string", [](const std::string& s) { return !s.empty(); });
+    vm.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
+    vm.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
+    vm.addCommand("print", {"string"});
+    vm.addCommand("print1", {"string"});
+    vm.addCommand("print2", {"string", "string"});
+    vm.addCommand("isfile", {"file"});
+    vm.addCommand("isdir", {"directory"});
 
     while (true) {
         outStr << ">";
         std::string in;
         getline(std::cin, in);
         auto tokens = tokenize(in);
-        if (auto parse = p.parseTokens(tokens)) {
+        if (auto parse = vm.parseTokens(tokens)) {
             outStr << *parse << "\n";
         } else {
             outStr << "NO COMMAND!\n";
