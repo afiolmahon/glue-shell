@@ -38,6 +38,7 @@ struct Position {
 
 struct EditorConfig {
     Position winSize{};
+    Position cursor{};
     struct termios origTermios;
 };
 
@@ -202,8 +203,13 @@ void editorRefreshScreen()
     std::string buffer;
     buffer.append("\x1b[?25l"); // hide cursor
     buffer.append("\x1b[H"); // move cursor to top left
+
     editorDrawRows(buffer);
-    buffer.append("\x1b[H");
+
+    std::array<char, 32> buf;
+    snprintf(buf.data(), sizeof(buf), "\x1b[%d;%dH", state.cursor.y + 1, state.cursor.x + 1);
+    buffer.append(buf.begin(), buf.begin() + strlen(buf.data()));
+
     buffer.append("\x1b[?25h"); // show cursor
 
     write(STDOUT_FILENO, buffer.c_str(), buffer.length());
