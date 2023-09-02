@@ -5,6 +5,7 @@
 #include <iostream>
 #include <map>
 
+#include <fmt/color.h>
 #include <fmt/format.h>
 #include <fmt/std.h>
 
@@ -71,7 +72,9 @@ struct VmResult {
 
 std::ostream& operator<<(std::ostream& str, const VmResult& v)
 {
-    str << fmt::format("[{:s}]{}", v.commandName, (v.command != nullptr ? "CMD" : "?"));
+    str << fmt::format("{:s}",
+            fmt::styled(v.commandName,
+                    fmt::fg(v.command != nullptr ? fmt::color::green : fmt::color::red)));
 
     // we need to merge indices in command and arg, print all that exist
     for (int i = 0; i < v.numArgs(); ++i) {
@@ -84,14 +87,10 @@ std::ostream& operator<<(std::ostream& str, const VmResult& v)
 
         bool isValid = haveArgString && haveArgType && v.command->param(i).validate(v.args.at(i));
 
-        str << fmt::format(" [{:s}]: {:s}",
+        str << fmt::format(" {:s}({:s})",
                 haveArgString ? v.args.at(i) : "?",
-                haveArgType ? v.command->param(i).type : "?");
-
-        // if we have both, validate the arg
-        if (haveArgString && haveArgType) {
-            str << "<" << (v.command->param(i).validate(v.args.at(i)) ? "Valid" : "Invalid") << ">";
-        }
+                fmt::styled(haveArgType ? v.command->param(i).type : "unknown",
+                        fmt::fg(isValid ? fmt::color::green : fmt::color::red)));
     }
     return str;
 }
