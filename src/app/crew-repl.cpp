@@ -43,29 +43,92 @@ struct Position {
     int y{};
 };
 
-struct EditorConfig {
+struct Editor {
     Position winSize{};
     Position cursor{};
     struct termios origTermios;
+
+    /** input */
+    void moveCursor(int key) {
+        switch (key) {
+        case fmt::underlying(EditorKey::ArrowLeft):
+            --cursor.x;
+            break;
+        case fmt::underlying(EditorKey::ArrowRight):
+            ++cursor.x;
+            break;
+        case fmt::underlying(EditorKey::ArrowUp):
+            --cursor.y;
+            break;
+        case fmt::underlying(EditorKey::ArrowDown):
+            ++cursor.y;
+            break;
+        }
+    }
+
+    /** output */
+    void drawRows(std::string& buffer) const
+    {
+        const static std::string welcome("crew interpreter - ctrl-q to quit");
+        for (int y = 0; y < winSize.y; ++y) {
+            // draw welcome 1/3 down the screen
+            if (y == winSize.y / 3) {
+                const int welcomeLen = std::min(static_cast<int32_t>(welcome.size()), winSize.x);
+                int padding = (winSize.x - welcomeLen) / 2;
+                if (padding != 0) {
+                    buffer.append("~");
+                    --padding;
+                }
+                buffer.append(padding, ' ');
+                // append, but truncate welcome to the length of the row
+                buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
+            } else {
+                buffer.append("~");
+            }
+
+            buffer.append("\x1b[K");// clear the current line
+            if (y < winSize.y) {
+                buffer.append("\r\n");
+            }
+
+        }
+    }
+    void refreshScreen() const
+    {
+        std::string buffer;
+        buffer.append("\x1b[?25l"); // hide cursor
+        buffer.append("\x1b[H"); // move cursor to top left
+
+        drawRows(buffer);
+
+        std::array<char, 32> buf;
+        snprintf(buf.data(), sizeof(buf), "\x1b[%d;%dH", cursor.y + 1, cursor.x + 1);
+        buffer.append(buf.begin(), buf.begin() + strlen(buf.data()));
+
+        buffer.append("\x1b[?25h"); // show cursor
+
+        write(STDOUT_FILENO, buffer.c_str(), buffer.length());
+    }
+
 };
 
-static EditorConfig state;
+static Editor editor;
 
 /** Restore the terminal to its original state */
 void exitRawMode()
 {
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &state.origTermios) == -1) {
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &editor.origTermios) == -1) {
         fatal("failed to tcsetattr: {}", std::strerror(errno));
     }
 }
 
 void enterRawMode()
 {
-    if (tcgetattr(STDIN_FILENO, &state.origTermios) == -1) {
+    if (tcgetattr(STDIN_FILENO, &editor.origTermios) == -1) {
         fatal("failed to tcgetattr: {}", std::strerror(errno));
     }
 
-    struct termios raw = state.origTermios;
+    struct termios raw = editor.origTermios;
     // disable:
     // - translation of \r to \n (CarriageReturnNewLine)
     // - software control flow (ctrl-s, ctrl-q)
@@ -196,69 +259,7 @@ std::optional<Position> getWindowSize()
 
 // TODO: on death, we should clear screen and reposition cursor
 
-/** output */
-
-void editorDrawRows(std::string& buffer)
-{
-    const static std::string welcome("crew interpreter - ctrl-q to quit");
-    for (int y = 0; y < state.winSize.y; ++y) {
-        // draw welcome 1/3 down the screen
-        if (y == state.winSize.y / 3) {
-            const int welcomeLen = std::min(static_cast<int32_t>(welcome.size()), state.winSize.x);
-            int padding = (state.winSize.x - welcomeLen) / 2;
-            if (padding != 0) {
-                buffer.append("~");
-                --padding;
-            }
-            buffer.append(padding, ' ');
-            // append, but truncate welcome to the length of the row
-            buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
-        } else {
-            buffer.append("~");
-        }
-
-        buffer.append("\x1b[K");// clear the current line
-        if (y < state.winSize.y) {
-            buffer.append("\r\n");
-        }
-
-    }
-}
-
-void editorRefreshScreen()
-{
-    std::string buffer;
-    buffer.append("\x1b[?25l"); // hide cursor
-    buffer.append("\x1b[H"); // move cursor to top left
-
-    editorDrawRows(buffer);
-
-    std::array<char, 32> buf;
-    snprintf(buf.data(), sizeof(buf), "\x1b[%d;%dH", state.cursor.y + 1, state.cursor.x + 1);
-    buffer.append(buf.begin(), buf.begin() + strlen(buf.data()));
-
-    buffer.append("\x1b[?25h"); // show cursor
-
-    write(STDOUT_FILENO, buffer.c_str(), buffer.length());
-}
-
 /** input */
-void editorMoveCursor(int key) {
-    switch (key) {
-    case fmt::underlying(EditorKey::ArrowLeft):
-        --state.cursor.x;
-        break;
-    case fmt::underlying(EditorKey::ArrowRight):
-        ++state.cursor.x;
-        break;
-    case fmt::underlying(EditorKey::ArrowUp):
-        --state.cursor.y;
-        break;
-    case fmt::underlying(EditorKey::ArrowDown):
-        ++state.cursor.y;
-        break;
-    }
-}
 void processKeypress()
 {
     int c = readKey();
@@ -272,19 +273,18 @@ void processKeypress()
     case fmt::underlying(EditorKey::ArrowRight):
     case fmt::underlying(EditorKey::ArrowUp):
     case fmt::underlying(EditorKey::ArrowDown):
-        editorMoveCursor(c);
+        editor.moveCursor(c);
         break;
     }
 }
 
 /** init */
-
 void initEditor() {
     auto ws = getWindowSize();
     if (!ws) {
         die("getWindowSize");
     }
-    state.winSize = *ws;
+    editor.winSize = *ws;
 }
 
 int rawRepl()
@@ -293,7 +293,7 @@ int rawRepl()
     initEditor();
 
     while (1) {
-        editorRefreshScreen();
+        editor.refreshScreen();
         processKeypress();
     }
 
