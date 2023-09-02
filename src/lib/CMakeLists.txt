@@ -1,5 +1,6 @@
 add_library(CrewLib STATIC
     command.cpp
+    interpreter.cpp
     module.cpp
     util.cpp
 )

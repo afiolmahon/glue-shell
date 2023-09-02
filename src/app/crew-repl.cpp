@@ -1,5 +1,6 @@
 
 #include "../lib/include/util.hpp"
+#include "../lib/include/interpreter.hpp"
 
 #include <functional>
 #include <sstream>
@@ -27,124 +28,6 @@ template <typename... Args>
         << fmt::format(": {:s}", std::strerror(errno)) << std::endl;
     ::exit(1);
 }
-
-struct VmParam {
-    std::string type;
-    std::function<bool(const std::string&)> validate;
-};
-
-class VmCommand {
-public:
-    size_t numParams() const { return m_posParams.size(); }
-    const VmParam& param(size_t argPos) const
-    {
-        auto ptr = m_posParams.at(argPos);
-        if (ptr == nullptr) {
-            fatal("no param at {:d}", argPos);
-        }
-        return *ptr;
-    }
-
-    VmCommand(std::vector<const VmParam*> params) :
-        m_posParams(std::move(params)) {}
-
-private:
-    std::vector<const VmParam*> m_posParams;
-};
-
-struct VmResult {
-    std::string commandName{};
-    const VmCommand* command = nullptr; // nullptr if no matching command exists
-    std::vector<std::string> args;
-
-    size_t numArgs() const
-    {
-        size_t result = args.size();
-        if (command != nullptr) {
-            result = std::max(result, command->numParams());
-        }
-        return result;
-    }
-};
-
-std::ostream& operator<<(std::ostream& str, const VmResult& v)
-{
-    str << fmt::format("{:s}",
-            fmt::styled(v.commandName,
-                    fmt::fg(v.command != nullptr ? fmt::color::green : fmt::color::red)));
-
-    // we need to merge indices in command and arg, print all that exist
-    for (int i = 0; i < v.numArgs(); ++i) {
-        const bool haveArgString = i < v.args.size();
-        bool haveArgType = v.command != nullptr ? i < v.command->numParams()
-                                                : false;
-        if (v.command != nullptr) {
-            haveArgType = i < v.command->numParams();
-        }
-
-        bool isValid = haveArgString && haveArgType && v.command->param(i).validate(v.args.at(i));
-
-        str << fmt::format(" {:s}({:s})",
-                haveArgString ? v.args.at(i) : "?",
-                fmt::styled(haveArgType ? v.command->param(i).type : "unknown",
-                        fmt::fg(isValid ? fmt::color::green : fmt::color::red)));
-    }
-    return str;
-}
-
-class Vm {
-public:
-    std::optional<VmResult> parseTokens(std::vector<std::string> tokens)
-    {
-        if (tokens.empty()) {
-            return {};
-        }
-
-        VmResult result{};
-        result.commandName = tokens.front();
-        result.command = findCommandPtr(result.commandName);
-        result.args.assign(next(tokens.begin()), tokens.end());
-
-        return result;
-    }
-
-    void addParam(const std::string& id, std::function<bool(const std::string&)> validator)
-    {
-        m_params[id] = std::make_unique<VmParam>(VmParam{id, validator});
-    }
-
-    void addCommand(const std::string& id, const std::vector<std::string>& paramIds)
-    {
-        std::vector<const VmParam*> params{};
-        for (const auto& p : paramIds) {
-            params.push_back(&getParam(p));
-        }
-        m_commands.try_emplace(id, std::make_unique<VmCommand>(std::move(params)));
-    }
-
-    /** get a stable pointer to a param definition */
-    const VmParam& getParam(const std::string& id)
-    {
-        if (auto it = m_params.find(id); it != m_params.end()) {
-            return *it->second;
-        }
-        fatal("invalid param id {:s}", id);
-    }
-
-    /** get a stable pointer to a command definition, or nullptr if it doesnt exist */
-    const VmCommand* findCommandPtr(const std::string& name)
-    {
-        if (auto it = m_commands.find(name); it != m_commands.end()) {
-            return &(*it->second);
-        }
-        return nullptr;
-    }
-
-    /** Defines all parameters */
-private:
-    std::map<std::string, std::unique_ptr<const VmParam>> m_params{};
-    std::map<std::string, std::unique_ptr<const VmCommand>> m_commands{};
-};
 
 /** data */
 
@@ -199,7 +82,7 @@ void enterRawMode()
     ::atexit(exitRawMode);
 }
 
-int cookedRepl(Vm& vm, std::ostream& out)
+int cookedRepl(crew::Vm& vm, std::ostream& out)
 {
     out << "Repl:" << std::endl;
     out << "working dir is: " << std::filesystem::current_path() << std::endl;
@@ -296,7 +179,7 @@ void initEditor() {
     state.winSize = *ws;
 }
 
-int rawRepl(Vm& vm, std::ostream& out)
+int rawRepl()
 {
     enterRawMode();
     initEditor();
@@ -326,7 +209,7 @@ int main(int argc, char** argv)
         }
     }
 
-    Vm vm{};
+    crew::Vm vm{};
     vm.addParam("string", [](const std::string& s) { return !s.empty(); });
     vm.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
     vm.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
@@ -338,7 +221,7 @@ int main(int argc, char** argv)
 
 
     if (rawMode) {
-        return rawRepl(vm, std::cout);
+        return rawRepl();
     } else {
         return cookedRepl(vm, std::cout);
     }
