@@ -45,23 +45,31 @@ struct Position {
 
 struct Editor {
     Position winSize{};
-    Position cursor{};
+    Position cursor{}; // origin is 1,1, so must be offest when comparing to winsize
     struct termios origTermios;
 
     /** input */
     void moveCursor(int key) {
         switch (key) {
         case fmt::underlying(EditorKey::ArrowLeft):
-            --cursor.x;
+            if (cursor.x > 0) {
+                --cursor.x;
+            }
             break;
         case fmt::underlying(EditorKey::ArrowRight):
-            ++cursor.x;
+            if (cursor.x < winSize.x - 1) {
+                ++cursor.x;
+            }
             break;
         case fmt::underlying(EditorKey::ArrowUp):
-            --cursor.y;
+            if (cursor.y > 0) {
+                --cursor.y;
+            }
             break;
         case fmt::underlying(EditorKey::ArrowDown):
-            ++cursor.y;
+            if (cursor.y < winSize.y - 1) {
+                ++cursor.y;
+            }
             break;
         }
     }
