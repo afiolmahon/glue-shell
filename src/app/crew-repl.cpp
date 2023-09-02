@@ -164,8 +164,18 @@ public:
         }
 
         struct termios raw = m_orig;
-        // disable echo, canonical mode
-        raw.c_lflag &= ~(ECHO | ICANON);
+        // disable:
+        // - translation of \r to \n (CarriageReturnNewLine)
+        // - software control flow (ctrl-s, ctrl-q)
+        raw.c_iflag &= ~(ICRNL | IXON);
+        // disable postprocessing (conversion of \n to \r\n)
+        raw.c_oflag &= ~(OPOST);
+        // disable by clearing bitfields:
+        // - echo (draw characters as they are input)
+        // - canonical mode (read bits as they appear on stdin)
+        // - signals (ctrl-z, ctrl-c)
+        // - literal escape (ctrl-V, ctrl-O)
+        raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
         // disable canonical mode
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
             fatal("failed to tcsetattr: {}", std::strerror(errno));
@@ -180,6 +190,8 @@ public:
     RawTerminalRaii& operator=(RawTerminalRaii&&) = delete;
 
     /** Restore the terminal to its original state */
+    // TODO: registering an atexit(*void()) handler
+    // is likely more robust as abort() may circumvent RAII
     ~RawTerminalRaii()
     {
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &m_orig) == -1) {
@@ -191,16 +203,65 @@ private:
     struct termios m_orig {};
 };
 
+int cookedRepl(Vm& vm, std::ostream& out)
+{
+    out << "Repl:" << std::endl;
+    out << "working dir is: " << std::filesystem::current_path() << std::endl;
+    while (true) {
+        out << ">";
+        std::string in;
+        getline(std::cin, in);
+        auto tokens = tokenize(in);
+        if (auto parse = vm.parseTokens(tokens)) {
+            out << *parse << "\n";
+        } else {
+            out << "NO COMMAND!\n";
+        }
+        out.flush();
+    }
+    return 0;
+}
+
+int rawRepl(Vm& vm, std::ostream& out)
+{
+    RawTerminalRaii rawMode{};
+
+    // assemble the output
+    while (true) {
+        char c{};
+        if (::read(STDIN_FILENO, &c, 1) == -1) {
+            fatal("::read failed: {:s}", std::strerror(errno));
+        }
+        if (c == 3) { // handle ctrl-c
+            out << "exiting...\r\n";
+            return 0;
+        }
+        if (iscntrl(c)) {
+            printf("%d\r\n", c);
+        } else {
+            printf("%d ('%c')\r\n", c, c);
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
-    // RawTerminalRaii rawMode{};
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
 
-    auto& outStr = std::cout;
+    bool rawMode = true;
+    for (auto it = args.begin(); it != args.end(); ++it) {
+        if (*it == "--raw") {
+            rawMode = true;
+        } else if (*it == "--cooked") {
+            rawMode = false;
+        }
+    }
 
-    outStr << "Repl:" << std::endl;
-    outStr << "working dir is: " << std::filesystem::current_path() << std::endl;
-
-    Vm vm;
+    Vm vm{};
     vm.addParam("string", [](const std::string& s) { return !s.empty(); });
     vm.addParam("file", [](const std::string& s) { return std::filesystem::exists(s); });
     vm.addParam("directory", [](const std::string& s) { return std::filesystem::is_directory(s); });
@@ -210,31 +271,11 @@ int main(int argc, char** argv)
     vm.addCommand("isfile", {"file"});
     vm.addCommand("isdir", {"directory"});
 
-    while (true) {
-        outStr << ">";
-        std::string in;
-        getline(std::cin, in);
-        auto tokens = tokenize(in);
 
-        // assemble the output
-        // while (true) {
-        //     char c{};
-        //     if (int r = ::read(STDIN_FILENO, &c, 1); r == -1) {
-        //         fatal("::read failed: {:s}", std::strerror(errno));
-        //     }
-        //     if (iscntrl(c)) {
-        //         printf("%d\n", c);
-        //     } else {
-        //         line.push_back(c);
-        //         printf("%d ('%c')\n", c, c);
-        //     }
-        // }
-
-        if (auto parse = vm.parseTokens(tokens)) {
-            outStr << *parse << "\n";
-        } else {
-            outStr << "NO COMMAND!\n";
-        }
-        outStr.flush();
+    if (rawMode) {
+        return rawRepl(vm, std::cout);
+    } else {
+        return cookedRepl(vm, std::cout);
     }
+    return 1;
 }
