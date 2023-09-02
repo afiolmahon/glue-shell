@@ -31,6 +31,13 @@ template <typename... Args>
 
 /** data */
 
+enum class EditorKey : int {
+    ArrowLeft = 1000,
+    ArrowRight,
+    ArrowUp,
+    ArrowDown,
+};
+
 struct Position {
     int x{};
     int y{};
@@ -111,7 +118,7 @@ constexpr char ctrlKey(char k) { return k & 0x1F; }
 
 /** terminal */
 
-char readKey()
+int readKey()
 {
     int nread{};
     char c{};
@@ -119,6 +126,26 @@ char readKey()
         if (nread == -1 && errno != EAGAIN) {
             die("read");
         }
+    }
+
+    if (c == '\x1b') {
+        std::array<char, 3> seq{};
+        if (read(STDIN_FILENO, &seq[0], 1) != 1) {
+            return '\x1b';
+        }
+        if (read(STDIN_FILENO, &seq[1], 1) != 1) {
+            return '\x1b';
+        }
+
+        if (seq[0] == '[') {
+            switch (seq[1]) {
+            case 'A': return fmt::underlying(EditorKey::ArrowUp);
+            case 'B': return fmt::underlying(EditorKey::ArrowDown);
+            case 'C': return fmt::underlying(EditorKey::ArrowRight);
+            case 'D': return fmt::underlying(EditorKey::ArrowLeft);
+            }
+        }
+        return '\x1b';
     }
     return c;
 }
@@ -216,15 +243,36 @@ void editorRefreshScreen()
 }
 
 /** input */
-
+void editorMoveCursor(int key) {
+    switch (key) {
+    case fmt::underlying(EditorKey::ArrowLeft):
+        --state.cursor.x;
+        break;
+    case fmt::underlying(EditorKey::ArrowRight):
+        ++state.cursor.x;
+        break;
+    case fmt::underlying(EditorKey::ArrowUp):
+        --state.cursor.y;
+        break;
+    case fmt::underlying(EditorKey::ArrowDown):
+        ++state.cursor.y;
+        break;
+    }
+}
 void processKeypress()
 {
-    char c = readKey();
+    int c = readKey();
     switch (c) {
     case ctrlKey('q'):
         write(STDOUT_FILENO, "\x1b[2J", 4);
         write(STDOUT_FILENO, "\x1b[H", 3);
         ::exit(0);
+        break;
+    case fmt::underlying(EditorKey::ArrowLeft):
+    case fmt::underlying(EditorKey::ArrowRight):
+    case fmt::underlying(EditorKey::ArrowUp):
+    case fmt::underlying(EditorKey::ArrowDown):
+        editorMoveCursor(c);
         break;
     }
 }
