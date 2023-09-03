@@ -53,7 +53,6 @@ int readKey();
 struct Editor {
     Position winSize{};
     Position cursor{}; // origin is 1,1, so must be offest when comparing to winsize
-    struct termios origTermios;
 
     /** input */
     void moveCursor(int key) {
@@ -158,21 +157,27 @@ struct Editor {
 
 static Editor editor;
 
+struct TerminalConfig {
+    struct termios origTermios{};
+};
+
+static TerminalConfig s_terminalConfig;
+
 /** Restore the terminal to its original state */
 void exitRawMode()
 {
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &editor.origTermios) == -1) {
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &s_terminalConfig.origTermios) == -1) {
         fatal("failed to tcsetattr: {}", std::strerror(errno));
     }
 }
 
 void enterRawMode()
 {
-    if (tcgetattr(STDIN_FILENO, &editor.origTermios) == -1) {
+    if (tcgetattr(STDIN_FILENO, &s_terminalConfig.origTermios) == -1) {
         fatal("failed to tcgetattr: {}", std::strerror(errno));
     }
 
-    struct termios raw = editor.origTermios;
+    struct termios raw = s_terminalConfig.origTermios;
     // disable:
     // - translation of \r to \n (CarriageReturnNewLine)
     // - software control flow (ctrl-s, ctrl-q)
