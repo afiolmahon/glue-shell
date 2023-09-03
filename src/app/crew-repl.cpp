@@ -49,8 +49,18 @@ struct Position {
 constexpr char ctrlKey(char k) { return k & 0x1F; }
 
 int readKey();
+std::optional<Position> getWindowSize();
 
 struct Editor {
+
+    Editor() {
+        auto ws = getWindowSize();
+        if (!ws) {
+            die("getWindowSize");
+        }
+        winSize = *ws;
+    }
+
     Position winSize{};
     Position cursor{}; // origin is 1,1, so must be offest when comparing to winsize
 
@@ -154,8 +164,6 @@ struct Editor {
     }
 
 };
-
-static Editor editor;
 
 struct TerminalConfig {
     struct termios origTermios{};
@@ -315,19 +323,10 @@ std::optional<Position> getWindowSize()
     return Position{ws.ws_col, ws.ws_row};
 }
 
-/** init */
-void initEditor() {
-    auto ws = getWindowSize();
-    if (!ws) {
-        die("getWindowSize");
-    }
-    editor.winSize = *ws;
-}
-
 int rawRepl()
 {
     enterRawMode();
-    initEditor();
+    Editor editor{};
 
     while (1) {
         editor.refreshScreen();
