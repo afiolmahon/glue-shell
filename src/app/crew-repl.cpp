@@ -310,8 +310,6 @@ std::optional<Position> getWindowSize()
     return Position{ws.ws_col, ws.ws_row};
 }
 
-// TODO: on death, we should clear screen and reposition cursor
-
 /** init */
 void initEditor() {
     auto ws = getWindowSize();
