@@ -36,6 +36,8 @@ enum class EditorKey : int {
     ArrowRight,
     ArrowUp,
     ArrowDown,
+    PageUp,
+    PageDown,
 };
 
 struct Position {
@@ -209,11 +211,23 @@ int readKey()
         }
 
         if (seq[0] == '[') {
-            switch (seq[1]) {
-            case 'A': return fmt::underlying(EditorKey::ArrowUp);
-            case 'B': return fmt::underlying(EditorKey::ArrowDown);
-            case 'C': return fmt::underlying(EditorKey::ArrowRight);
-            case 'D': return fmt::underlying(EditorKey::ArrowLeft);
+            if (seq[1] >= '0' && seq[1] <= '9') {
+                if (read(STDIN_FILENO, &seq[2], 1) != 1) {
+                    return '\x1b';
+                }
+                if (seq[2] == '~') {
+                    switch (seq[1]) {
+                    case '5': return fmt::underlying(EditorKey::PageUp);
+                    case '6': return fmt::underlying(EditorKey::PageDown);
+                    }
+                }
+            } else {
+                switch (seq[1]) {
+                case 'A': return fmt::underlying(EditorKey::ArrowUp);
+                case 'B': return fmt::underlying(EditorKey::ArrowDown);
+                case 'C': return fmt::underlying(EditorKey::ArrowRight);
+                case 'D': return fmt::underlying(EditorKey::ArrowLeft);
+                }
             }
         }
         return '\x1b';
@@ -277,6 +291,16 @@ void processKeypress()
         write(STDOUT_FILENO, "\x1b[H", 3);
         ::exit(0);
         break;
+    case fmt::underlying(EditorKey::PageUp):
+    case fmt::underlying(EditorKey::PageDown): {
+        int times = editor.winSize.y;
+        while (times--) {
+            editor.moveCursor(c == fmt::underlying(EditorKey::PageUp)
+                    ? fmt::underlying(EditorKey::ArrowUp)
+                    : fmt::underlying(EditorKey::ArrowDown));
+        }
+
+    } break;
     case fmt::underlying(EditorKey::ArrowLeft):
     case fmt::underlying(EditorKey::ArrowRight):
     case fmt::underlying(EditorKey::ArrowUp):
