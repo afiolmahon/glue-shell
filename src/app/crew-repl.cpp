@@ -45,6 +45,11 @@ struct Position {
     int y{};
 };
 
+/** Convert char to control keycode i.e. 'q' -> CTRL-Q */
+constexpr char ctrlKey(char k) { return k & 0x1F; }
+
+int readKey();
+
 struct Editor {
     Position winSize{};
     Position cursor{}; // origin is 1,1, so must be offest when comparing to winsize
@@ -72,6 +77,35 @@ struct Editor {
             if (cursor.y < winSize.y - 1) {
                 ++cursor.y;
             }
+            break;
+        }
+    }
+
+    /** input */
+    void processKeypress()
+    {
+        int c = readKey();
+        switch (c) {
+        case ctrlKey('q'):
+            write(STDOUT_FILENO, "\x1b[2J", 4);
+            write(STDOUT_FILENO, "\x1b[H", 3);
+            ::exit(0);
+            break;
+        case fmt::underlying(EditorKey::PageUp):
+        case fmt::underlying(EditorKey::PageDown): {
+            int times = winSize.y;
+            while (times--) {
+                moveCursor(c == fmt::underlying(EditorKey::PageUp)
+                        ? fmt::underlying(EditorKey::ArrowUp)
+                        : fmt::underlying(EditorKey::ArrowDown));
+            }
+
+        } break;
+        case fmt::underlying(EditorKey::ArrowLeft):
+        case fmt::underlying(EditorKey::ArrowRight):
+        case fmt::underlying(EditorKey::ArrowUp):
+        case fmt::underlying(EditorKey::ArrowDown):
+            moveCursor(c);
             break;
         }
     }
@@ -186,9 +220,6 @@ int cookedRepl(crew::Vm& vm, std::ostream& out)
     return 0;
 }
 
-/** Convert char to control keycode i.e. 'q' -> CTRL-Q */
-constexpr char ctrlKey(char k) { return k & 0x1F; }
-
 /** terminal */
 
 int readKey()
@@ -281,35 +312,6 @@ std::optional<Position> getWindowSize()
 
 // TODO: on death, we should clear screen and reposition cursor
 
-/** input */
-void processKeypress()
-{
-    int c = readKey();
-    switch (c) {
-    case ctrlKey('q'):
-        write(STDOUT_FILENO, "\x1b[2J", 4);
-        write(STDOUT_FILENO, "\x1b[H", 3);
-        ::exit(0);
-        break;
-    case fmt::underlying(EditorKey::PageUp):
-    case fmt::underlying(EditorKey::PageDown): {
-        int times = editor.winSize.y;
-        while (times--) {
-            editor.moveCursor(c == fmt::underlying(EditorKey::PageUp)
-                    ? fmt::underlying(EditorKey::ArrowUp)
-                    : fmt::underlying(EditorKey::ArrowDown));
-        }
-
-    } break;
-    case fmt::underlying(EditorKey::ArrowLeft):
-    case fmt::underlying(EditorKey::ArrowRight):
-    case fmt::underlying(EditorKey::ArrowUp):
-    case fmt::underlying(EditorKey::ArrowDown):
-        editor.moveCursor(c);
-        break;
-    }
-}
-
 /** init */
 void initEditor() {
     auto ws = getWindowSize();
@@ -326,7 +328,7 @@ int rawRepl()
 
     while (1) {
         editor.refreshScreen();
-        processKeypress();
+        editor.processKeypress();
     }
 
     return 0;
