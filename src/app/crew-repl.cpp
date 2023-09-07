@@ -362,7 +362,7 @@ struct Editor {
     }
 
     /** output */
-    void drawRows(std::string& buffer) const
+    void drawRows(std::string& buffer)
     {
         int32_t promptLines = 2;
         int32_t terminalRows = winSize.y - promptLines;
@@ -392,7 +392,7 @@ struct Editor {
             clearCurrent(true);
         }
     }
-    void refreshScreen() const
+    void refreshScreen()
     {
         std::string buffer;
         buffer.append("\x1b[?25l"); // hide cursor
