@@ -36,6 +36,8 @@ enum class EditorKey : int {
     ArrowRight,
     ArrowUp,
     ArrowDown,
+    HomeKey,
+    EndKey,
     PageUp,
     PageDown,
 };
@@ -75,8 +77,12 @@ int readKey()
                 }
                 if (seq[2] == '~') {
                     switch (seq[1]) {
+                    case '1': return fmt::underlying(EditorKey::HomeKey);
+                    case '4': return fmt::underlying(EditorKey::EndKey);
                     case '5': return fmt::underlying(EditorKey::PageUp);
                     case '6': return fmt::underlying(EditorKey::PageDown);
+                    case '7': return fmt::underlying(EditorKey::HomeKey);
+                    case '8': return fmt::underlying(EditorKey::EndKey);
                     }
                 }
             } else {
@@ -85,7 +91,14 @@ int readKey()
                 case 'B': return fmt::underlying(EditorKey::ArrowDown);
                 case 'C': return fmt::underlying(EditorKey::ArrowRight);
                 case 'D': return fmt::underlying(EditorKey::ArrowLeft);
+                case 'H': return fmt::underlying(EditorKey::HomeKey);
+                case 'F': return fmt::underlying(EditorKey::EndKey);
                 }
+            }
+        } else if (seq[0] == 'O') {
+            switch (seq[1]) {
+            case 'H': return fmt::underlying(EditorKey::HomeKey);
+            case 'F': return fmt::underlying(EditorKey::EndKey);
             }
         }
         return '\x1b';
@@ -201,6 +214,12 @@ struct Editor {
         case fmt::underlying(EditorKey::ArrowUp):
         case fmt::underlying(EditorKey::ArrowDown):
             moveCursor(c);
+            break;
+        case fmt::underlying(EditorKey::HomeKey):
+            cursor.x = 0;
+            break;
+        case fmt::underlying(EditorKey::EndKey):
+            cursor.x = winSize.x - 1;
             break;
         }
     }
