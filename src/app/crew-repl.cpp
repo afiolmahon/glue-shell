@@ -47,6 +47,8 @@ enum class EditorKey : int {
 struct Position {
     int x{};
     int y{};
+
+    auto operator<=>(const Position& other) const = default;
 };
 
 /** Convert char to control keycode i.e. 'q' -> CTRL-Q */
@@ -171,6 +173,68 @@ std::optional<Position> getWindowSize()
     return Position{ws.ws_col, ws.ws_row};
 }
 
+/** Split a string into rows for rendering to the terminal */
+std::vector<std::string> toRows(const std::string content, int32_t width)
+{
+    std::vector<std::string> result;
+    std::string next;
+    int32_t rowWidth = 0;
+
+    const auto pushRow = [&result, &next, &rowWidth]() {
+        result.push_back(std::move(next));
+        next = {};
+        rowWidth = 0;
+    };
+
+    auto it = content.begin();
+    for (; it != content.end(); ++it) {
+        // wrap if we reach the window length
+        if (rowWidth == width) {
+            pushRow();
+        }
+        if (*it == '\t') {
+            if (rowWidth + 4 >= width) {
+                pushRow();
+            }
+            next.append("    "); // TODO: avoid translation to spaces once we couple tabwidth to that of the terminal
+            rowWidth += 4;
+        } else if (*it == '\n') {
+            pushRow();
+        } else {
+            next.push_back(*it);
+            rowWidth += 1;
+        }
+    }
+
+    if (!next.empty()) {
+        result.push_back(std::move(next));
+    }
+    return result;
+}
+
+class RenderableWrappedText {
+public:
+    RenderableWrappedText(std::string content) :
+        m_content(std::move(content)) {}
+
+    /** Get wrapped content, lazily regenerating if width changes */
+    const std::vector<std::string> rows(int32_t cols) const
+    {
+        if (m_cols != cols) {
+            m_rendered = toRows(m_content, cols);
+            m_cols = cols;
+        }
+        return m_rendered;
+    }
+
+private:
+    std::string m_content;
+
+    // render state
+    mutable std::optional<int32_t> m_cols; // validity of m_render
+    mutable std::vector<std::string> m_rendered;
+};
+
 struct Editor {
 
     Editor()
@@ -187,58 +251,8 @@ struct Editor {
 
     std::string currentCommand;
 
-    // this implementation will eventually need to support:
-    // - unfinished jobs
-    // - very large outputs
-    struct OutputObject {
-        std::string content{};
-
-        // used for rendering, invalidated by resize
-        mutable std::vector<std::string> rendered{};
-        mutable bool dirty = true;
-
-        void update(const Position& windowSize) const
-        {
-            rendered.clear();
-
-            std::string next;
-            int32_t rowWidth = 0;
-
-            const auto pushRow = [this, &next, &rowWidth]() {
-                rendered.push_back(std::move(next));
-                next = {};
-                rowWidth = 0;
-            };
-
-            auto it = content.begin();
-            for (; it != content.end(); ++it) {
-                // wrap if we reach the window length
-                if (rowWidth == windowSize.x) {
-                    pushRow();
-                }
-                if (*it == '\t') {
-                    if (rowWidth + 4 >= windowSize.x) {
-                        pushRow();
-                    }
-                    next.append("    "); // TODO: avoid translation to spaces once we couple tabwidth to that of the terminal
-                    rowWidth += 4;
-                } else if (*it == '\n') {
-                    pushRow();
-                } else {
-                    next.push_back(*it);
-                    rowWidth += 1;
-                }
-            }
-
-            if (!next.empty()) {
-                rendered.push_back(std::move(next));
-            }
-            dirty = false;
-        }
-    };
-
     struct Outputs {
-        std::vector<OutputObject> entries;
+        std::vector<RenderableWrappedText> entries;
 
         void render(std::string& buffer, int32_t numLines) const
         {
@@ -246,8 +260,9 @@ struct Editor {
             int32_t linesRendered = 0;
             auto it = entries.begin();
             while (it != entries.end() && linesRendered != numLines) {
-                auto lit = it->rendered.begin();
-                while (lit != it->rendered.end() && linesRendered != numLines) {
+                const std::vector<std::string>& rows = it->rows(numLines);
+                auto lit = rows.begin();
+                while (lit != rows.end() && linesRendered != numLines) {
                     buffer.append(*lit);
                     buffer.append("\x1b[K\r\n"); // clear the current line, newline+cr
                     ++linesRendered;
@@ -264,15 +279,6 @@ struct Editor {
 
         // render method that takes # rows
     } outputs;
-
-    void addOutput(std::string contents)
-    {
-        outputs.entries.push_back({.content = std::move(contents)});
-        // TODO: move this to within drawRows, so that it can respond to window resize
-        if (outputs.entries.back().dirty) {
-            outputs.entries.back().update(winSize);
-        }
-    }
 
     /** input */
     void moveCursor(int key)
@@ -307,7 +313,7 @@ struct Editor {
         int c = readKey();
         switch (c) {
         case '\r':
-            addOutput(currentCommand);
+            outputs.entries.emplace_back(std::move(currentCommand));
             currentCommand = {};
             cursor.x = 0;
             break;
