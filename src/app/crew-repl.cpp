@@ -17,7 +17,7 @@
 
 #include <sys/ioctl.h>
 
-using crew::fatal;
+namespace crew {
 
 template <typename... Args>
 [[noreturn]] void die(fmt::format_string<Args...> format, Args... args)
@@ -459,7 +459,7 @@ void enterRawMode()
     ::atexit(exitRawMode);
 }
 
-int cookedRepl(crew::Vm& vm, std::ostream& out)
+int cookedRepl(Vm& vm, std::ostream& out)
 {
     out << "Repl:" << std::endl;
     out << "working dir is: " << std::filesystem::current_path() << std::endl;
@@ -467,7 +467,7 @@ int cookedRepl(crew::Vm& vm, std::ostream& out)
         out << ">";
         std::string in;
         getline(std::cin, in);
-        auto tokens = crew::tokenize(in);
+        auto tokens = tokenize(in);
         if (auto parse = vm.parseTokens(tokens)) {
             out << *parse << "\n";
         } else {
@@ -490,6 +490,7 @@ int rawRepl()
 
     return 0;
 }
+} // namespace crew
 
 int main(int argc, char** argv)
 {
@@ -518,7 +519,7 @@ int main(int argc, char** argv)
     vm.addCommand("isdir", {"directory"});
 
     if (rawMode) {
-        return rawRepl();
+        return crew::rawRepl();
     } else {
         return cookedRepl(vm, std::cout);
     }
