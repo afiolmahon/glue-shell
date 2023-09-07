@@ -309,6 +309,7 @@ struct Editor {
         case '\r':
             addOutput(currentCommand);
             currentCommand = {};
+            cursor.x = 0;
             break;
         case ctrlKey('q'):
             write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -384,6 +385,7 @@ struct Editor {
         outputs.render(buffer, terminalRows);
 
         { // print current command
+            cursor.y = terminalRows;
             appendTruncated(currentCommand);
             clearCurrent();
         }
@@ -400,9 +402,11 @@ struct Editor {
 
         drawRows(buffer);
 
-        std::array<char, 32> buf;
-        snprintf(buf.data(), sizeof(buf), "\x1b[%d;%dH", cursor.y + 1, cursor.x + 1);
-        buffer.append(buf.begin(), buf.begin() + strlen(buf.data()));
+        { // move cursor to position specified by the `cursor` member
+            std::array<char, 32> buf;
+            snprintf(buf.data(), sizeof(buf), "\x1b[%d;%dH", cursor.y + 1, cursor.x + 1);
+            buffer.append(buf.begin(), buf.begin() + strlen(buf.data()));
+        }
 
         buffer.append("\x1b[?25h"); // show cursor
 
