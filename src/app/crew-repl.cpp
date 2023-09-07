@@ -36,6 +36,7 @@ enum class EditorKey : int {
     ArrowRight,
     ArrowUp,
     ArrowDown,
+    DeleteKey,
     HomeKey,
     EndKey,
     PageUp,
@@ -78,6 +79,7 @@ int readKey()
                 if (seq[2] == '~') {
                     switch (seq[1]) {
                     case '1': return fmt::underlying(EditorKey::HomeKey);
+                    case '3': return fmt::underlying(EditorKey::DeleteKey);
                     case '4': return fmt::underlying(EditorKey::EndKey);
                     case '5': return fmt::underlying(EditorKey::PageUp);
                     case '6': return fmt::underlying(EditorKey::PageDown);
