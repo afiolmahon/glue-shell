@@ -3,13 +3,15 @@
 
 #include "util.hpp"
 
-#include <vector>
-#include <string>
-#include <sstream>
+#include <functional>
 #include <map>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <vector>
 
-#include <fmt/format.h>
 #include <fmt/color.h>
+#include <fmt/format.h>
 
 namespace crew {
 
