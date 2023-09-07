@@ -166,6 +166,8 @@ struct Editor {
     Position winSize{};
     Position cursor{}; // origin is 1,1, so must be offest when comparing to winsize
 
+    std::string currentCommand;
+
     /** input */
     void moveCursor(int key) {
         switch (key) {
@@ -229,6 +231,13 @@ struct Editor {
             break;
         case fmt::underlying(EditorKey::Backspace):
         case ctrlKey('h'):
+            currentCommand.resize(currentCommand.size() - 1);
+            cursor.x -= 1;
+            break;
+        case ctrlKey('c'): // clear current
+            currentCommand.clear();
+            cursor.x = 1;
+            break;
         case fmt::underlying(EditorKey::DeleteKey):
             // TODO:
             break;
@@ -236,7 +245,8 @@ struct Editor {
         case '\x1b': // ESC should have been translated by readKey()
             break;
         default:
-            // TODO: insert character
+            currentCommand.push_back(c);
+            cursor.x += 1;
             break;
         }
     }
@@ -246,19 +256,27 @@ struct Editor {
     {
         const static std::string welcome("crew interpreter - ctrl-q to quit");
         for (int y = 0; y < winSize.y; ++y) {
-            // draw welcome 1/3 down the screen
-            if (y == winSize.y / 3) {
-                const int welcomeLen = std::min(static_cast<int32_t>(welcome.size()), winSize.x);
-                int padding = (winSize.x - welcomeLen) / 2;
-                if (padding != 0) {
-                    buffer.append("~");
-                    --padding;
-                }
-                buffer.append(padding, ' ');
-                // append, but truncate welcome to the length of the row
-                buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
+            if (y == 0) {
+                // print current command on first row
+                int rowLen = std::min(
+                        static_cast<int32_t>(currentCommand.size()), winSize.x);
+                buffer.append(currentCommand.begin(), currentCommand.begin() + rowLen);
             } else {
-                buffer.append("~");
+                // draw welcome 1/3 down the screen
+                if (y == winSize.y / 3) {
+                    const int welcomeLen = std::min(
+                            static_cast<int32_t>(welcome.size()), winSize.x);
+                    int padding = (winSize.x - welcomeLen) / 2;
+                    if (padding != 0) {
+                        buffer.append("~");
+                        --padding;
+                    }
+                    buffer.append(padding, ' ');
+                    // append, but truncate welcome to the length of the row
+                    buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
+                } else {
+                    buffer.append("~");
+                }
             }
 
             buffer.append("\x1b[K");// clear the current line
