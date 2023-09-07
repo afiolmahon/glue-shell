@@ -231,8 +231,10 @@ struct Editor {
             break;
         case fmt::underlying(EditorKey::Backspace):
         case ctrlKey('h'):
-            currentCommand.resize(currentCommand.size() - 1);
-            cursor.x -= 1;
+            if (!currentCommand.empty()) {
+                currentCommand.resize(currentCommand.size() - 1);
+                cursor.x -= 1;
+            }
             break;
         case ctrlKey('c'): // clear current
             currentCommand.clear();
