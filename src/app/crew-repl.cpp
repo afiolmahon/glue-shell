@@ -168,6 +168,94 @@ struct Editor {
 
     std::string currentCommand;
 
+    // this implementation will eventually need to support:
+    // - unfinished jobs
+    // - very large outputs
+    struct OutputObject {
+        std::string content{};
+
+        // used for rendering, invalidated by resize
+        mutable std::vector<std::string> rendered{};
+        mutable bool dirty = true;
+
+        void update(const Position& windowSize) const
+        {
+            rendered.clear();
+
+            std::string next;
+            int32_t rowWidth = 0;
+
+            const auto pushRow = [this, &next, &rowWidth](){
+                rendered.push_back(std::move(next));
+                next = {};
+                rowWidth = 0;
+            };
+
+            auto it = content.begin();
+            for (; it != content.end(); ++it) {
+                // wrap if we reach the window length
+                if (rowWidth == windowSize.x) {
+                    pushRow();
+                }
+                if (*it == '\t') {
+                    if (rowWidth + 4 >= windowSize.x) {
+                        pushRow();
+                    }
+                    next.append("    "); // TODO: avoid translation to spaces once we couple tabwidth to that of the terminal
+                    rowWidth += 4;
+                } else if (*it == '\n') {
+                    pushRow();
+                } else {
+                    next.push_back(*it);
+                    rowWidth += 1;
+                }
+            }
+
+            if (!next.empty()) {
+                rendered.push_back(std::move(next));
+            }
+            dirty = false;
+        }
+    };
+
+    struct Outputs {
+        std::vector<OutputObject> entries;
+
+        void render(std::string& buffer, int32_t numLines) const
+        {
+            // iterate backwards over each entry, line
+            int32_t linesRendered = 0;
+            auto it = entries.begin();
+            while (it != entries.end() && linesRendered != numLines) {
+                auto lit = it->rendered.begin();
+                while (lit != it->rendered.end() && linesRendered != numLines) {
+                    buffer.append(*lit);
+                    buffer.append("\x1b[K\r\n"); // clear the current line, newline+cr
+                    ++linesRendered;
+                    ++lit;
+                }
+                ++it;
+            };
+
+            for (; linesRendered < numLines; ++linesRendered) {
+                buffer.append("~ " + std::to_string(linesRendered)); // clear the current line, newline+cr
+                buffer.append("\x1b[K\r\n"); // clear the current line, newline+cr
+            }
+        }
+
+        // render method that takes # rows
+    } outputs;
+
+    void addOutput(std::string contents)
+    {
+        outputs.entries.push_back({.content = std::move(contents)});
+        // TODO: move this to within drawRows, so that it can respond to window resize
+        if (outputs.entries.back().dirty) {
+            outputs.entries.back().update(winSize);
+        }
+    }
+
+
     /** input */
     void moveCursor(int key) {
         switch (key) {
@@ -200,7 +288,8 @@ struct Editor {
         int c = readKey();
         switch (c) {
         case '\r':
-            // TODO
+            addOutput(currentCommand);
+            currentCommand = {};
             break;
         case ctrlKey('q'):
             write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -256,36 +345,32 @@ struct Editor {
     /** output */
     void drawRows(std::string& buffer) const
     {
-        const static std::string welcome("crew interpreter - ctrl-q to quit");
-        for (int y = 0; y < winSize.y; ++y) {
-            if (y == 0) {
-                // print current command on first row
-                int rowLen = std::min(
-                        static_cast<int32_t>(currentCommand.size()), winSize.x);
-                buffer.append(currentCommand.begin(), currentCommand.begin() + rowLen);
-            } else {
-                // draw welcome 1/3 down the screen
-                if (y == winSize.y / 3) {
-                    const int welcomeLen = std::min(
-                            static_cast<int32_t>(welcome.size()), winSize.x);
-                    int padding = (winSize.x - welcomeLen) / 2;
-                    if (padding != 0) {
-                        buffer.append("~");
-                        --padding;
-                    }
-                    buffer.append(padding, ' ');
-                    // append, but truncate welcome to the length of the row
-                    buffer.append(welcome.begin(), welcome.begin() + welcomeLen);
-                } else {
-                    buffer.append("~");
-                }
-            }
+        int32_t promptLines = 2;
+        int32_t terminalRows = winSize.y - promptLines;
 
+        const auto clearCurrent = [&buffer](bool lastLine = false) {
             buffer.append("\x1b[K");// clear the current line
-            if (y < winSize.y - 1) {
+            if (!lastLine) {
                 buffer.append("\r\n");
             }
+        };
 
+        /** Append a string to the row, truncating to the window width*/
+        const auto appendTruncated = [this, &buffer](const std::string& content){
+            int rowLen = std::min(
+                    static_cast<int32_t>(content.size()), winSize.x);
+            buffer.append(content.begin(), content.begin() + rowLen);
+        };
+
+        outputs.render(buffer, terminalRows);
+
+        { // print current command
+            appendTruncated(currentCommand);
+            clearCurrent();
+        }
+        { // provide detail below
+            buffer.append("crew interpreter - ctrl-q to quit");
+            clearCurrent(true);
         }
     }
     void refreshScreen() const
