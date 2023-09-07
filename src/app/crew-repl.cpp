@@ -247,7 +247,7 @@ struct Editor {
             }
 
             buffer.append("\x1b[K");// clear the current line
-            if (y < winSize.y) {
+            if (y < winSize.y - 1) {
                 buffer.append("\r\n");
             }
 
