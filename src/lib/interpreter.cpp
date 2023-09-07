@@ -2,7 +2,7 @@
 
 namespace crew {
 
-std::ostream& operator<<(std::ostream& str, const VmResult& v)
+std::ostream& operator<<(std::ostream& str, const ParseResult& v)
 {
     str << fmt::format("{:s}",
             fmt::styled(v.commandName,

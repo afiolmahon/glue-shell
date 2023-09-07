@@ -37,7 +37,7 @@ private:
     std::vector<const VmParam*> m_posParams;
 };
 
-struct VmResult {
+struct ParseResult {
     std::string commandName{};
     const VmCommand* command = nullptr; // nullptr if no matching command exists
     std::vector<std::string> args;
@@ -52,17 +52,17 @@ struct VmResult {
     }
 };
 
-std::ostream& operator<<(std::ostream& str, const VmResult& v);
+std::ostream& operator<<(std::ostream& str, const ParseResult& v);
 
 class Vm {
 public:
-    std::optional<VmResult> parseTokens(std::vector<std::string> tokens)
+    std::optional<ParseResult> parseTokens(std::vector<std::string> tokens)
     {
         if (tokens.empty()) {
             return {};
         }
 
-        VmResult result{};
+        ParseResult result{};
         result.commandName = tokens.front();
         result.command = findCommandPtr(result.commandName);
         result.args.assign(next(tokens.begin()), tokens.end());
