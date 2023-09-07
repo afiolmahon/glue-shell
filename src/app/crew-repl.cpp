@@ -3,9 +3,9 @@
 #include "../lib/include/interpreter.hpp"
 
 #include <functional>
-#include <sstream>
 #include <iostream>
 #include <map>
+#include <sstream>
 
 #include <fmt/color.h>
 #include <fmt/format.h>
@@ -25,7 +25,7 @@ template <typename... Args>
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     std::cerr << fmt::format(format, std::forward<Args>(args)...)
-        << fmt::format(": {:s}", std::strerror(errno)) << std::endl;
+              << fmt::format(": {:s}", std::strerror(errno)) << std::endl;
     ::exit(1);
 }
 
@@ -50,7 +50,10 @@ struct Position {
 };
 
 /** Convert char to control keycode i.e. 'q' -> CTRL-Q */
-constexpr char ctrlKey(char k) { return k & 0x1F; }
+constexpr char ctrlKey(char k)
+{
+    return k & 0x1F;
+}
 
 /** terminal */
 int readKey()
@@ -79,29 +82,44 @@ int readKey()
                 }
                 if (seq[2] == '~') {
                     switch (seq[1]) {
-                    case '1': return fmt::underlying(EditorKey::HomeKey);
-                    case '3': return fmt::underlying(EditorKey::DeleteKey);
-                    case '4': return fmt::underlying(EditorKey::EndKey);
-                    case '5': return fmt::underlying(EditorKey::PageUp);
-                    case '6': return fmt::underlying(EditorKey::PageDown);
-                    case '7': return fmt::underlying(EditorKey::HomeKey);
-                    case '8': return fmt::underlying(EditorKey::EndKey);
+                    case '1':
+                        return fmt::underlying(EditorKey::HomeKey);
+                    case '3':
+                        return fmt::underlying(EditorKey::DeleteKey);
+                    case '4':
+                        return fmt::underlying(EditorKey::EndKey);
+                    case '5':
+                        return fmt::underlying(EditorKey::PageUp);
+                    case '6':
+                        return fmt::underlying(EditorKey::PageDown);
+                    case '7':
+                        return fmt::underlying(EditorKey::HomeKey);
+                    case '8':
+                        return fmt::underlying(EditorKey::EndKey);
                     }
                 }
             } else {
                 switch (seq[1]) {
-                case 'A': return fmt::underlying(EditorKey::ArrowUp);
-                case 'B': return fmt::underlying(EditorKey::ArrowDown);
-                case 'C': return fmt::underlying(EditorKey::ArrowRight);
-                case 'D': return fmt::underlying(EditorKey::ArrowLeft);
-                case 'H': return fmt::underlying(EditorKey::HomeKey);
-                case 'F': return fmt::underlying(EditorKey::EndKey);
+                case 'A':
+                    return fmt::underlying(EditorKey::ArrowUp);
+                case 'B':
+                    return fmt::underlying(EditorKey::ArrowDown);
+                case 'C':
+                    return fmt::underlying(EditorKey::ArrowRight);
+                case 'D':
+                    return fmt::underlying(EditorKey::ArrowLeft);
+                case 'H':
+                    return fmt::underlying(EditorKey::HomeKey);
+                case 'F':
+                    return fmt::underlying(EditorKey::EndKey);
                 }
             }
         } else if (seq[0] == 'O') {
             switch (seq[1]) {
-            case 'H': return fmt::underlying(EditorKey::HomeKey);
-            case 'F': return fmt::underlying(EditorKey::EndKey);
+            case 'H':
+                return fmt::underlying(EditorKey::HomeKey);
+            case 'F':
+                return fmt::underlying(EditorKey::EndKey);
             }
         }
         return '\x1b';
@@ -142,7 +160,7 @@ std::optional<Position> getCursorPos()
 
 std::optional<Position> getWindowSize()
 {
-    struct winsize ws{};
+    struct winsize ws {};
     if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
         // fallback if ioctl basde lookup fails
         if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) {
@@ -155,7 +173,8 @@ std::optional<Position> getWindowSize()
 
 struct Editor {
 
-    Editor() {
+    Editor()
+    {
         auto ws = getWindowSize();
         if (!ws) {
             die("getWindowSize");
@@ -185,7 +204,7 @@ struct Editor {
             std::string next;
             int32_t rowWidth = 0;
 
-            const auto pushRow = [this, &next, &rowWidth](){
+            const auto pushRow = [this, &next, &rowWidth]() {
                 rendered.push_back(std::move(next));
                 next = {};
                 rowWidth = 0;
@@ -255,9 +274,9 @@ struct Editor {
         }
     }
 
-
     /** input */
-    void moveCursor(int key) {
+    void moveCursor(int key)
+    {
         switch (key) {
         case fmt::underlying(EditorKey::ArrowLeft):
             if (cursor.x > 0) {
@@ -301,8 +320,8 @@ struct Editor {
             int times = winSize.y;
             while (times--) {
                 moveCursor(c == fmt::underlying(EditorKey::PageUp)
-                        ? fmt::underlying(EditorKey::ArrowUp)
-                        : fmt::underlying(EditorKey::ArrowDown));
+                                ? fmt::underlying(EditorKey::ArrowUp)
+                                : fmt::underlying(EditorKey::ArrowDown));
             }
 
         } break;
@@ -349,14 +368,14 @@ struct Editor {
         int32_t terminalRows = winSize.y - promptLines;
 
         const auto clearCurrent = [&buffer](bool lastLine = false) {
-            buffer.append("\x1b[K");// clear the current line
+            buffer.append("\x1b[K"); // clear the current line
             if (!lastLine) {
                 buffer.append("\r\n");
             }
         };
 
         /** Append a string to the row, truncating to the window width*/
-        const auto appendTruncated = [this, &buffer](const std::string& content){
+        const auto appendTruncated = [this, &buffer](const std::string& content) {
             int rowLen = std::min(
                     static_cast<int32_t>(content.size()), winSize.x);
             buffer.append(content.begin(), content.begin() + rowLen);
@@ -389,11 +408,10 @@ struct Editor {
 
         write(STDOUT_FILENO, buffer.c_str(), buffer.length());
     }
-
 };
 
 struct TerminalConfig {
-    struct termios origTermios{};
+    struct termios origTermios {};
 };
 
 static TerminalConfig s_terminalConfig;
@@ -498,7 +516,6 @@ int main(int argc, char** argv)
     vm.addCommand("print2", {"string", "string"});
     vm.addCommand("isfile", {"file"});
     vm.addCommand("isdir", {"directory"});
-
 
     if (rawMode) {
         return rawRepl();
