@@ -32,6 +32,7 @@ template <typename... Args>
 /** data */
 
 enum class EditorKey : int {
+    Backspace = 127,
     ArrowLeft = 1000,
     ArrowRight,
     ArrowUp,
@@ -196,6 +197,9 @@ struct Editor {
     {
         int c = readKey();
         switch (c) {
+        case '\r':
+            // TODO
+            break;
         case ctrlKey('q'):
             write(STDOUT_FILENO, "\x1b[2J", 4);
             write(STDOUT_FILENO, "\x1b[H", 3);
@@ -222,6 +226,17 @@ struct Editor {
             break;
         case fmt::underlying(EditorKey::EndKey):
             cursor.x = winSize.x - 1;
+            break;
+        case fmt::underlying(EditorKey::Backspace):
+        case ctrlKey('h'):
+        case fmt::underlying(EditorKey::DeleteKey):
+            // TODO:
+            break;
+        case ctrlKey('l'):
+        case '\x1b': // ESC should have been translated by readKey()
+            break;
+        default:
+            // TODO: insert character
             break;
         }
     }
