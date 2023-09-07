@@ -4,7 +4,7 @@
 #ifndef CREW_COMMAND_HPP
 #define CREW_COMMAND_HPP
 
-#include "util.hpp"
+#include <common/util.hpp>
 
 #include <concepts>
 #include <filesystem>

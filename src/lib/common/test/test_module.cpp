@@ -1,5 +1,5 @@
 
-#include "../include/module.hpp"
+#include <common/module.hpp>
 
 #include <gtest/gtest.h>
 

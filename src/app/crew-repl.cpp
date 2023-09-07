@@ -1,6 +1,6 @@
 
-#include "../lib/include/util.hpp"
-#include "../lib/include/interpreter.hpp"
+#include <common/interpreter.hpp>
+#include <common/util.hpp>
 
 #include <functional>
 #include <iostream>
