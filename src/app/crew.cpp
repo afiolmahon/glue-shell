@@ -53,18 +53,6 @@ struct Repo {
         return content;
     }
 
-    /**
-     * Update the repo's default stage
-     * @param stageName - stage to use as repo default
-     */
-    void setDefaultStage(const std::string& stageName)
-    {
-        fs::remove(stageFilePath());
-        if (!stageName.empty()) {
-            std::ofstream(stageFilePath()) << stageName;
-        }
-    }
-
     fs::path gitRoot;
 };
 
@@ -430,9 +418,11 @@ int main(int argc, char** argv)
             }
 
             if (++it == args.end()) {
-                repo->setDefaultStage({}); // if no argument supplied, clear default stage
+                // clear default stage if no arg supplied
+                remove(repo->stageFilePath());
             } else {
-                repo->setDefaultStage(*it);
+                // update default stage, discarding any prior selection
+                std::ofstream(repo->stageFilePath(), std::ios::trunc) << *it;
             }
             return 0;
         } else if (arg == "stage-prompt") {
