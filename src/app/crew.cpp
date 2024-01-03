@@ -14,7 +14,9 @@
 using namespace crew;
 namespace fs = std::filesystem;
 
+/** Exposes veo-specific details about a git repository */
 struct Repo {
+    /** @return - Repo object for the current working directory, if it is a git repo */
     static std::optional<Repo> current()
     {
         std::stringstream outStr;
@@ -34,15 +36,18 @@ struct Repo {
         return {};
     }
 
+    /** @return - true if this repo uses CMake */
+    bool isCmakeProject() const { return exists(gitRoot / "CMakeLists.txt"); }
+
+    /** @return - true if this repo is veobot */
     bool isVeobot() const { return is_directory(gitRoot / "schemas"); };
+    /** @return - true if this repo is cruft */
     bool isCruft() const { return is_directory(gitRoot / "app" / "vfm-ref-remapper"); };
+
+    /** @return - location of the "override default stage" text file */
     fs::path stageFilePath() const { return gitRoot / ".veto-stage"; }
 
-    bool isCmakeProject() const
-    {
-        return exists(gitRoot / "CMakeLists.txt");
-    }
-
+    /** @return - the default stage override, if one exists */
     std::optional<std::string> defaultStage() const
     {
         std::ifstream ifs(stageFilePath());
