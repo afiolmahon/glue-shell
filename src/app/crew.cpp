@@ -95,11 +95,13 @@ struct Stage {
     Type type{};
 };
 
+/** Wrapper for interacting with a veo-oe installation */
 class VeoOe {
 public:
     VeoOe(fs::path etoRootPath) :
         etoRoot(std::move(etoRootPath)) {}
 
+    /** @return - a VeoOe instance for the autodetected veo-oe installation */
     static std::optional<VeoOe> find()
     {
         const char* env = std::getenv("ETO_ROOT");
@@ -113,16 +115,16 @@ public:
         return {std::move(etoRoot)};
     }
 
-    [[nodiscard]] Command eto()
-    {
-        return Command{etoRoot / "bin" / "eto"};
-    }
+    /** @return - path to the eto executable */
+    fs::path etoPath() const { return etoRoot / "bin" / "eto"; }
 
-    fs::path pathToStage(const Stage& stage)
-    {
-        return etoRoot / "tmp" / "stages" / stage.name;
-    }
+    /** @return - a command object targeting the eto executable */
+    [[nodiscard]] Command eto() { return Command{etoPath()}; }
 
+    /** @return - path to the stage with the specified name, dir may not exist */
+    fs::path pathToStage(const Stage& stage) { return etoRoot / "tmp" / "stages" / stage.name; }
+
+    /** Fetch and pull latest OE, update layers, and bitbake */
     [[noreturn]] void updateOe()
     {
         Command("git", "fetch").setCurrentDir(etoRoot).run();
@@ -130,7 +132,7 @@ public:
         eto().args("oe", "update-layers")
                 .setCurrentDir(etoRoot)
                 .run();
-        Command(etoRoot / "bin" / "eto", "oe", "bitbake", "veo-sysroots", "root-image")
+        Command(etoPath(), "oe", "bitbake", "veo-sysroots", "root-image")
                 .setCurrentDir(etoRoot)
                 .run(RunMode::ExecPty);
         fatal("unreachable");
