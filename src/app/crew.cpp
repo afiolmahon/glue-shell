@@ -24,12 +24,12 @@ struct Repo {
     bool isCruft() const { return is_directory(gitRoot / "app" / "vfm-ref-remapper"); };
 
     /** @return - location of the "override default stage" text file */
-    fs::path stageFilePath() const { return gitRoot / ".veto-stage"; }
+    fs::path crewConfigPath() const { return gitRoot / ".veto-stage"; }
 
     /** @return - the default stage override, if one exists */
     std::optional<std::string> defaultStage() const
     {
-        std::ifstream ifs(stageFilePath());
+        std::ifstream ifs(crewConfigPath());
         std::string content(std::istreambuf_iterator<char>(ifs), {});
         if (content.empty()) {
             return {};
@@ -412,10 +412,10 @@ int main(int argc, char** argv)
 
             if (++it == args.end()) {
                 // clear default stage if no arg supplied
-                remove(repo->stageFilePath());
+                remove(repo->crewConfigPath());
             } else {
                 // update default stage, discarding any prior selection
-                std::ofstream(repo->stageFilePath(), std::ios::trunc) << *it;
+                std::ofstream(repo->crewConfigPath(), std::ios::trunc) << *it;
             }
             return 0;
         } else if (arg == "stage-prompt") {
