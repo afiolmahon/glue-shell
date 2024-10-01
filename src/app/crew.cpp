@@ -9,6 +9,7 @@
 
 #include <fmt/format.h>
 #include <fmt/std.h>
+#include <string_view>
 
 using namespace crew;
 namespace fs = std::filesystem;
@@ -178,8 +179,8 @@ public:
      * Helper for dry-run functionality which encapsulates
      * an action that potentially changes the state of the project
      */
-    template <typename ActionCallable, typename Description>
-    void transaction(ActionCallable&& action, Description&& description)
+    template <typename ActionCallable>
+    void transaction(ActionCallable&& action, std::string_view description)
     {
         if (!dryRun) {
             action();
@@ -189,10 +190,7 @@ public:
             return;
         }
 
-        auto& str = std::cerr;
-        str << fmt::format("{:s}: {}\n",
-                dryRun ? "DRY" : "LOG",
-                std::forward<Description>(description));
+        std::cerr << fmt::format("{:s}: {}\n", dryRun ? "DRY" : "LOG", description);
     }
 
     // print to stdout
