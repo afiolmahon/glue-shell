@@ -260,6 +260,7 @@ constexpr const char* const helpText = R"(A DWIM wrapper for the eto utility
     install - eto stage install the current build configuration
     mk <ARGS...> - invoke make with the current stage build configuration
     test - build and run all tests
+    lint - (studio only) run yarn lint
     targets - list make targets for the current stages build configuration
     status - print information about the current stage build configuration
     stage-prompt - print current stage name for use in a PS1 prompt. no output if stage is default
@@ -376,6 +377,18 @@ int main(int argc, char** argv)
                               "{split($1,A,/ /);for(i in A)print A[i]}'"
                               " | sed '/Makefile/d' | sort -u";
             Command("bash", "-c", std::move(cmd)).setCurrentDir(build.dir).run();
+            return 0;
+        } else if (arg == "lint") {
+            Build build = currentBuildConfig();
+            if (!is_directory(build.dir)) {
+                fatal("build dir doesn't exist");
+            }
+            build.oe.eto()
+                    .args("js", "yarn", "lint")
+                    .setCurrentDir(build.dir)
+                    .setDry(dryRun)
+                    .setVerbose(dryRun)
+                    .run(RunMode::ExecPty);
             return 0;
         } else if (arg == "status") {
             Build build = currentBuildConfig();
