@@ -15,26 +15,6 @@ namespace fs = std::filesystem;
 
 /** Exposes veo-specific details about a git repository */
 struct Repo {
-    /** @return - Repo object for the current working directory, if it is a git repo */
-    static std::optional<Repo> current()
-    {
-        std::stringstream outStr;
-        std::ofstream errStr("/dev/null");
-        if (int result = Command("git", "rev-parse", "--show-toplevel")
-                                 .setOut(outStr)
-                                 .setErr(errStr)
-                                 .onError(OnError::Return)
-                                 .run();
-                result == 0) {
-            fs::path gitRoot = trim(outStr.str());
-            if (gitRoot.empty()) {
-                fatal("gitRoot not found");
-            }
-            return Repo{.gitRoot = std::move(gitRoot)};
-        }
-        return {};
-    }
-
     /** @return - true if this repo uses CMake */
     bool isCmakeProject() const { return exists(gitRoot / "CMakeLists.txt"); }
 
@@ -59,6 +39,26 @@ struct Repo {
 
     fs::path gitRoot;
 };
+
+/** @return - Repo object for the current working directory, if it is a git repo */
+static std::optional<Repo> currentRepo()
+{
+    std::stringstream outStr;
+    std::ofstream errStr("/dev/null");
+    if (int result = Command("git", "rev-parse", "--show-toplevel")
+                             .setOut(outStr)
+                             .setErr(errStr)
+                             .onError(OnError::Return)
+                             .run();
+            result == 0) {
+        fs::path gitRoot = trim(outStr.str());
+        if (gitRoot.empty()) {
+            fatal("gitRoot not found");
+        }
+        return Repo{.gitRoot = std::move(gitRoot)};
+    }
+    return {};
+}
 
 struct Stage {
     enum class Type {
@@ -321,7 +321,7 @@ int main(int argc, char** argv)
     bool dryRun = false;
 
     const auto currentBuildConfig = [&stageName, &verbose, &dryRun]() -> Build {
-        std::optional repo = Repo::current();
+        std::optional repo = currentRepo();
         if (!repo.has_value()) {
             fatal("No project found; not in a git repo");
         }
@@ -404,7 +404,7 @@ int main(int argc, char** argv)
             if (dryRun) { // TODO: dry run support
                 fatal("{:s} doesn't support dry run", arg);
             }
-            std::optional<Repo> repo = Repo::current();
+            std::optional<Repo> repo = currentRepo();
             if (!repo.has_value()) {
                 std::cerr << "Can't update stage; not in a git repo\n";
                 return 1;
@@ -419,7 +419,7 @@ int main(int argc, char** argv)
             }
             return 0;
         } else if (arg == "stage-prompt") {
-            auto stage = Stage::lookup(stageName, Repo::current());
+            auto stage = Stage::lookup(stageName, currentRepo());
             if (stage.type != Stage::Type::Default) {
                 std::cout << stage.name << std::endl;
             }
