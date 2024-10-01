@@ -1,7 +1,6 @@
 #include <common/command.hpp>
 #include <common/util.hpp>
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -229,62 +228,6 @@ public:
     }
 
     template <typename Begin, typename End>
-    void cmake(Begin begin, End end)
-    {
-        if (!is_directory(dir)) {
-            fatal("build dir doesn't exist");
-        }
-        oe.eto()
-                .args("xc", "cmake", "-S", repo.gitRoot.string(), "-B", dir.string())
-                .setCurrentDir(dir)
-                .setVerbose(verbose)
-                .setDry(dryRun)
-                .args(begin, end)
-                .run(RunMode::BlockPty);
-
-        const fs::path link = repo.gitRoot / "compile_commands.json";
-        const fs::path target = dir / "compile_commands.json";
-
-        if (is_symlink(link)) {
-            transaction(
-                    [&link]() { remove(link); },
-                    fmt::format("removing {}", link));
-        };
-
-        transaction(
-                [&target, &link]() {
-                    if (!exists(link)) {
-                        create_symlink(target, link);
-                    } else {
-                        std::cerr << "failed to update compile_commands symlink" << std::endl;
-                    } },
-                fmt::format("symlinking compile_commands to {} from {}", link, target));
-    }
-
-    template <typename Begin, typename End>
-    void cmakeInit(Begin begin, End end)
-    {
-        if (!repo.isCmakeProject()) {
-            fatal("not a cmake project");
-        }
-
-        if (exists(dir)) {
-            fatal("build dir {} already exists", dir);
-        }
-
-        transaction(
-                [this]() { create_directories(dir); },
-                fmt::format("creating directory {}", dir));
-
-        std::vector<std::string> args{"-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo"};
-        if (repo.isVeobot() || repo.isCruft()) {
-            args.push_back("-DETO_STAGEDIR=" + oe.pathToStage(stage).string());
-        }
-
-        cmake(args.begin(), args.end());
-    }
-
-    template <typename Begin, typename End>
     [[noreturn]] void make(Begin begin, End end)
     {
         if (!is_directory(dir)) {
@@ -298,17 +241,6 @@ public:
                 .setVerbose(dryRun)
                 .run(RunMode::ExecPty);
         fatal("unreachable");
-    }
-
-    [[noreturn]] void test(bool build = true)
-    {
-        std::vector<std::string> args;
-        if (build) {
-            args.push_back("all");
-        }
-        args.push_back("test");
-        args.push_back("ARGS=\"-j" + std::to_string(numThreads) + "\"");
-        make(args.begin(), args.end());
     }
 
     void printStatus(std::ostream& str = std::cout) const
@@ -328,6 +260,40 @@ public:
     bool dryRun = false;
     int numThreads = 30;
 };
+
+template <typename Begin, typename End>
+void cmake(Build& build, Begin begin, End end)
+{
+    if (!is_directory(build.dir)) {
+        fatal("build dir doesn't exist");
+    }
+
+    build.oe.eto()
+            .args("xc", "cmake", "-S", build.repo.gitRoot.string(), "-B", build.dir.string())
+            .setCurrentDir(build.dir)
+            .setVerbose(build.verbose)
+            .setDry(build.dryRun)
+            .args(begin, end)
+            .run(RunMode::BlockPty);
+
+    const fs::path link = build.repo.gitRoot / "compile_commands.json";
+    const fs::path target = build.dir / "compile_commands.json";
+
+    if (is_symlink(link)) {
+        build.transaction(
+                [&link]() { remove(link); },
+                fmt::format("removing {}", link));
+    };
+
+    build.transaction(
+            [&target, &link]() {
+                if (!exists(link)) {
+                    create_symlink(target, link);
+                } else {
+                    std::cerr << "failed to update compile_commands symlink" << std::endl;
+                } },
+            fmt::format("symlinking compile_commands to {} from {}", link, target));
+}
 
 // TODO: document command line flags, use a more conventional --help page organization
 constexpr const char* const helpText = R"(A DWIM wrapper for the eto utility
@@ -354,7 +320,7 @@ int main(int argc, char** argv)
     bool verbose = false;
     bool dryRun = false;
 
-    const auto currentBuildConfig = [&stageName, &verbose, &dryRun]() {
+    const auto currentBuildConfig = [&stageName, &verbose, &dryRun]() -> Build {
         std::optional repo = Repo::current();
         if (!repo.has_value()) {
             fatal("No project found; not in a git repo");
@@ -392,12 +358,29 @@ int main(int argc, char** argv)
             }
             stageName = *it;
         } else if (arg == "cmake") {
-            auto build = currentBuildConfig();
-            build.cmake(++it, args.end());
+            Build build = currentBuildConfig();
+            cmake(build, ++it, args.end());
             return 0;
         } else if (arg == "cmake-init") {
-            auto build = currentBuildConfig();
-            build.cmakeInit(++it, args.end());
+            Build build = currentBuildConfig();
+
+            if (!build.repo.isCmakeProject()) {
+                fatal("not a cmake project");
+            }
+
+            if (exists(build.dir)) {
+                fatal("build dir {} already exists", build.dir);
+            }
+
+            build.transaction(
+                    [&build]() { create_directories(build.dir); },
+                    fmt::format("creating directory {}", build.dir));
+
+            std::vector<std::string> args{"-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo"};
+            if (build.repo.isVeobot() || build.repo.isCruft()) {
+                args.push_back("-DETO_STAGEDIR=" + build.oe.pathToStage(build.stage).string());
+            }
+            cmake(build, ++it, args.end());
             return 0;
         } else if (arg == "install") {
             currentBuildConfig().install();
@@ -406,7 +389,10 @@ int main(int argc, char** argv)
             currentBuildConfig().make(++it, args.end());
             return 0;
         } else if (arg == "test") {
-            currentBuildConfig().test();
+            Build build = currentBuildConfig();
+            std::vector<std::string> makeArgs{
+                    "all", "test", "ARGS=\"-j" + std::to_string(build.numThreads) + "\""};
+            build.make(makeArgs.begin(), makeArgs.end());
             return 0;
         } else if (arg == "targets") {
             currentBuildConfig().targets();
