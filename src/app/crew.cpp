@@ -101,20 +101,6 @@ public:
     VeoOe(fs::path etoRootPath) :
         etoRoot(std::move(etoRootPath)) {}
 
-    /** @return - a VeoOe instance for the autodetected veo-oe installation */
-    static std::optional<VeoOe> find()
-    {
-        const char* env = std::getenv("ETO_ROOT");
-        if (env == nullptr) {
-            return {};
-        }
-        fs::path etoRoot{env};
-        if (!std::filesystem::is_directory(etoRoot)) {
-            return {};
-        }
-        return {std::move(etoRoot)};
-    }
-
     /** @return - path to the eto executable */
     fs::path etoPath() const { return etoRoot / "bin" / "eto"; }
 
@@ -140,6 +126,20 @@ public:
 
     fs::path etoRoot;
 };
+
+/** @return - a VeoOe instance for the autodetected veo-oe installation */
+std::optional<VeoOe> findOe()
+{
+    const char* env = std::getenv("ETO_ROOT");
+    if (env == nullptr) {
+        return {};
+    }
+    fs::path etoRoot{env};
+    if (!std::filesystem::is_directory(etoRoot)) {
+        return {};
+    }
+    return {std::move(etoRoot)};
+}
 
 std::string toString(const Stage::Type& type)
 {
@@ -193,38 +193,6 @@ public:
         std::cerr << fmt::format("{:s}: {}\n", dryRun ? "DRY" : "LOG", description);
     }
 
-    // print to stdout
-    void targets() const
-    {
-        if (!is_directory(dir)) {
-            fatal("build dir doesn't exist");
-        }
-        std::string cmd = "make -qp"
-                          " | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ "
-                          "{split($1,A,/ /);for(i in A)print A[i]}'"
-                          " | sed '/Makefile/d' | sort -u";
-        Command("bash", "-c", std::move(cmd)).setCurrentDir(dir).run();
-    }
-
-    [[noreturn]] void install()
-    {
-        if (!is_directory(dir)) {
-            fatal("build dir doesn't exist");
-        }
-
-        auto c = oe.eto()
-                         .setDry(dryRun)
-                         .setVerbose(verbose)
-                         .args("stage", "-n", stage.name);
-
-        if (repo.isCmakeProject()) {
-            c.args("-b", dir.string());
-        };
-
-        c.args("install", "-l28", "-j" + std::to_string(numThreads)).run(RunMode::ExecPty);
-        fatal("unreachable");
-    }
-
     template <typename Begin, typename End>
     [[noreturn]] void make(Begin begin, End end)
     {
@@ -239,15 +207,6 @@ public:
                 .setVerbose(dryRun)
                 .run(RunMode::ExecPty);
         fatal("unreachable");
-    }
-
-    void printStatus(std::ostream& str = std::cout) const
-    {
-        str << "Stage:      " << toString(stage) << "\n"
-            << "Repository: " << repo.gitRoot << "\n"
-            << "Build Dir:  " << dir
-            << (is_directory(dir) ? "\n" : " (missing)\n");
-        str << "CMake:      " << (repo.isCmakeProject() ? "true" : "false") << std::endl;
     }
 
     VeoOe oe;
@@ -327,7 +286,7 @@ int main(int argc, char** argv)
         const auto stage = Stage::lookup(stageName, *repo);
         auto result = Build(
                 [] {
-                    auto result = VeoOe::find();
+                    auto result = findOe();
                     if (!result.has_value()) {
                         fatal("unable to locate veo-oe");
                     }
@@ -381,10 +340,25 @@ int main(int argc, char** argv)
             cmake(build, ++it, args.end());
             return 0;
         } else if (arg == "install") {
-            currentBuildConfig().install();
+            Build build = currentBuildConfig();
+            if (!is_directory(build.dir)) {
+                fatal("build dir doesn't exist");
+            }
+
+            auto c = build.oe.eto()
+                             .setDry(dryRun)
+                             .setVerbose(verbose)
+                             .args("stage", "-n", build.stage.name);
+
+            if (build.repo.isCmakeProject()) {
+                c.args("-b", build.dir.string());
+            };
+
+            c.args("install", "-l28", "-j" + std::to_string(build.numThreads)).run(RunMode::ExecPty);
             return 0;
         } else if (arg == "mk") {
-            currentBuildConfig().make(++it, args.end());
+            Build build = currentBuildConfig();
+            build.make(++it, args.end());
             return 0;
         } else if (arg == "test") {
             Build build = currentBuildConfig();
@@ -393,10 +367,24 @@ int main(int argc, char** argv)
             build.make(makeArgs.begin(), makeArgs.end());
             return 0;
         } else if (arg == "targets") {
-            currentBuildConfig().targets();
+            Build build = currentBuildConfig();
+            if (!is_directory(build.dir)) {
+                fatal("build dir doesn't exist");
+            }
+            std::string cmd = "make -qp"
+                              " | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ "
+                              "{split($1,A,/ /);for(i in A)print A[i]}'"
+                              " | sed '/Makefile/d' | sort -u";
+            Command("bash", "-c", std::move(cmd)).setCurrentDir(build.dir).run();
             return 0;
         } else if (arg == "status") {
-            currentBuildConfig().printStatus();
+            Build build = currentBuildConfig();
+            auto& str = std::cout;
+            str << "Stage:      " << toString(build.stage) << "\n"
+                << "Repository: " << build.repo.gitRoot << "\n"
+                << "Build Dir:  " << build.dir
+                << (is_directory(build.dir) ? "\n" : " (missing)\n");
+            str << "CMake:      " << (build.repo.isCmakeProject() ? "true" : "false") << std::endl;
             return 0;
         } else if (arg == "set-stage") {
             if (dryRun) { // TODO: dry run support
@@ -426,7 +414,7 @@ int main(int argc, char** argv)
             if (dryRun) { // TODO: dry run support
                 fatal("{:s} doesn't support dry run", arg);
             }
-            auto oe = VeoOe::find();
+            auto oe = findOe();
             if (!oe.has_value()) {
                 fatal("veo oe not found");
             }
