@@ -62,7 +62,7 @@ static std::optional<Repo> currentRepo()
 }
 
 struct Stage {
-    enum class Type {
+    enum class LookupType {
         Default = 0,
         EnvVar,
         RepoDefault,
@@ -74,17 +74,17 @@ struct Stage {
     {
         // specified via command line
         if (stageOverride.has_value()) {
-            return {*stageOverride, Type::CliArg};
+            return {*stageOverride, LookupType::CliArg};
         }
         // specified via environment var
         if (const char* const env = std::getenv("VETO_STAGE"); env != nullptr) {
-            return {std::string(env), Type::EnvVar};
+            return {std::string(env), LookupType::EnvVar};
         }
 
         // if we are in a repo look for stage name specified in a .veto-stage file
         if (repo.has_value()) {
             if (std::optional<std::string> repoStage = repo->get().defaultStage()) {
-                return {*repoStage, Type::RepoDefault};
+                return {*repoStage, LookupType::RepoDefault};
             }
         }
 
@@ -92,7 +92,7 @@ struct Stage {
     }
 
     std::string name{"stage"};
-    Type type{};
+    LookupType lookupType{};
 };
 
 /** Wrapper for interacting with a veo-oe installation */
@@ -141,23 +141,23 @@ std::optional<VeoOe> findOe()
     return {std::move(etoRoot)};
 }
 
-std::string toString(const Stage::Type& type)
+std::string toString(const Stage::LookupType& type)
 {
     switch (type) {
-    case Stage::Type::Default:
+    case Stage::LookupType::Default:
         return "Default";
-    case Stage::Type::EnvVar:
+    case Stage::LookupType::EnvVar:
         return "Environment Variable";
-    case Stage::Type::RepoDefault:
+    case Stage::LookupType::RepoDefault:
         return "Repo Default";
-    case Stage::Type::CliArg:
+    case Stage::LookupType::CliArg:
         return "CliArg";
     }
-    return fmt::format("Stage::Type({})", fmt::underlying(type));
+    return fmt::format("Stage::LookupType({})", fmt::underlying(type));
 }
 std::string toString(const Stage& stage)
 {
-    return fmt::format("{} ({})", stage.name, toString(stage.type));
+    return fmt::format("{} ({})", stage.name, toString(stage.lookupType));
 }
 
 /** Represents a build configuration */
@@ -406,7 +406,7 @@ int main(int argc, char** argv)
             return 0;
         } else if (arg == "stage-prompt") {
             auto stage = Stage::lookup(stageName, currentRepo());
-            if (stage.type != Stage::Type::Default) {
+            if (stage.lookupType != Stage::LookupType::Default) {
                 std::cout << stage.name << std::endl;
             }
             return 0;
