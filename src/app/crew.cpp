@@ -14,6 +14,15 @@
 using namespace crew;
 namespace fs = std::filesystem;
 
+/** trim from both ends of string (right then left) */
+inline std::string trim(std::string&& s)
+{
+    constexpr const char* const ws = " \t\n\r\f\v";
+    s.erase(s.find_last_not_of(ws) + 1); // trim from end of string (right)
+    s.erase(0, s.find_first_not_of(ws)); // trim from beginning of string (left)
+    return std::move(s);
+}
+
 /** Exposes veo-specific details about a git repository */
 struct Repo {
     /** @return - true if this repo uses CMake */
