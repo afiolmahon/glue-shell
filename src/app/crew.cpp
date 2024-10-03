@@ -300,25 +300,23 @@ int main(int argc, char** argv)
     };
 
     for (auto it = args.begin(); it != args.end(); ++it) {
-        const auto& arg = *it;
-
-        if (arg == "--help" || arg == "-h") {
+        if (*it == "--help" || *it == "-h") {
             std::cout << helpText << std::endl;
             return 0;
-        } else if (arg == "--verbose" || arg == "-v") {
+        } else if (*it == "--verbose" || *it == "-v") {
             verbose = true;
-        } else if (arg == "--dry-run") {
+        } else if (*it == "--dry-run") {
             dryRun = true;
-        } else if (arg == "-n" || arg == "--name") {
+        } else if (*it == "-n" || *it == "--name") {
             if (++it == args.end()) {
-                fatal("missing stage name after ", arg);
+                fatal("missing stage name after ", *it);
             }
             stageName = *it;
-        } else if (arg == "cmake") {
+        } else if (*it == "cmake") {
             Build build = currentBuildConfig();
             cmake(build, ++it, args.end());
             return 0;
-        } else if (arg == "stage") {
+        } else if (*it == "stage") {
             ++it;
             const auto subcmd = *it;
             if (subcmd == "shell") {
@@ -342,7 +340,7 @@ int main(int argc, char** argv)
             fmt::print(std::cerr, "unknown command: stage {}", subcmd);
             return 1;
 
-        } else if (arg == "cmake-init") {
+        } else if (*it == "cmake-init") {
             Build build = currentBuildConfig();
 
             if (!build.repo.isCmakeProject()) {
@@ -367,7 +365,7 @@ int main(int argc, char** argv)
             cmakeArgs.insert(cmakeArgs.end(), ++it, args.end()); // fwd remaining command line args
             cmake(build, cmakeArgs.begin(), cmakeArgs.end());
             return 0;
-        } else if (arg == "install") {
+        } else if (*it == "install") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
                 fatal("build dir doesn't exist");
@@ -384,17 +382,17 @@ int main(int argc, char** argv)
 
             c.args("install", "-l28", "-j" + std::to_string(build.numThreads)).run(RunMode::ExecPty);
             return 0;
-        } else if (arg == "mk") {
+        } else if (*it == "mk") {
             Build build = currentBuildConfig();
             build.make(++it, args.end());
             return 0;
-        } else if (arg == "test") {
+        } else if (*it == "test") {
             Build build = currentBuildConfig();
             std::vector<std::string> makeArgs{
                     "all", "test", "ARGS=\"-j" + std::to_string(build.numThreads) + "\""};
             build.make(makeArgs.begin(), makeArgs.end());
             return 0;
-        } else if (arg == "targets") {
+        } else if (*it == "targets") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
                 fatal("build dir doesn't exist");
@@ -405,7 +403,7 @@ int main(int argc, char** argv)
                               " | sed '/Makefile/d' | sort -u";
             Command("bash", "-c", std::move(cmd)).setCurrentDir(build.dir).run();
             return 0;
-        } else if (arg == "lint") {
+        } else if (*it == "lint") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
                 fatal("build dir doesn't exist");
@@ -417,7 +415,7 @@ int main(int argc, char** argv)
                     .setVerbose(dryRun)
                     .run(RunMode::ExecPty);
             return 0;
-        } else if (arg == "serve") {
+        } else if (*it == "serve") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
                 fatal("build dir doesn't exist");
@@ -429,7 +427,7 @@ int main(int argc, char** argv)
                     .setVerbose(dryRun)
                     .run(RunMode::ExecPty);
             return 0;
-        } else if (arg == "status") {
+        } else if (*it == "status") {
             Build build = currentBuildConfig();
             auto& str = std::cout;
             str << "Stage:      " << toString(build.stage) << "\n"
@@ -438,9 +436,9 @@ int main(int argc, char** argv)
                 << (is_directory(build.dir) ? "\n" : " (missing)\n");
             str << "CMake:      " << (build.repo.isCmakeProject() ? "true" : "false") << std::endl;
             return 0;
-        } else if (arg == "set-stage") {
+        } else if (*it == "set-stage") {
             if (dryRun) { // TODO: dry run support
-                fatal("{:s} doesn't support dry run", arg);
+                fatal("{:s} doesn't support dry run", *it);
             }
             std::optional<Repo> repo = currentRepo();
             if (!repo.has_value()) {
@@ -456,15 +454,15 @@ int main(int argc, char** argv)
                 std::ofstream(repo->crewConfigPath(), std::ios::trunc) << *it;
             }
             return 0;
-        } else if (arg == "stage-prompt") {
+        } else if (*it == "stage-prompt") {
             auto stage = Stage::lookup(stageName, currentRepo());
             if (stage.lookupType != Stage::LookupType::Default) {
                 std::cout << stage.name << std::endl;
             }
             return 0;
-        } else if (arg == "update-oe") {
+        } else if (*it == "update-oe") {
             if (dryRun) { // TODO: dry run support
-                fatal("{:s} doesn't support dry run", arg);
+                fatal("{:s} doesn't support dry run", *it);
             }
             auto oe = findOe();
             if (!oe.has_value()) {
@@ -479,7 +477,7 @@ int main(int argc, char** argv)
                     .run(RunMode::ExecPty);
             fatal("unreachable");
         } else {
-            fatal("unknown argument \"{:s}\"", arg);
+            fatal("unknown argument \"{:s}\"", *it);
         }
     }
     return 0;
