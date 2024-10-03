@@ -1,7 +1,6 @@
 add_library(crew-common STATIC
     command.cpp
     interpreter.cpp
-    module.cpp
     util.cpp
 )
 target_include_directories(crew-common PUBLIC include)

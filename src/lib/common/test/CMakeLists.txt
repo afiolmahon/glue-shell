@@ -6,9 +6,5 @@
 add_executable(test_command test_command.cpp)
 target_link_libraries(test_command crew-common GTest::gtest_main)
 
-add_executable(test_module test_module.cpp)
-target_link_libraries(test_module crew-common GTest::gtest_main)
-
 include(GoogleTest)
 gtest_discover_tests(test_command)
-gtest_discover_tests(test_module)
