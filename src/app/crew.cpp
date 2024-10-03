@@ -1,5 +1,4 @@
 #include <common/command.hpp>
-#include <common/util.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -63,7 +62,8 @@ static std::optional<Repo> currentRepo()
             result == 0) {
         fs::path gitRoot = trim(outStr.str());
         if (gitRoot.empty()) {
-            fatal("gitRoot not found");
+            fmt::print(std::cerr, "gitRoot not found");
+            ::exit(1);
         }
         return Repo{.gitRoot = std::move(gitRoot)};
     }
@@ -192,7 +192,8 @@ public:
     [[noreturn]] void make(Begin begin, End end)
     {
         if (!is_directory(dir)) {
-            fatal("build dir doesn't exist");
+            fmt::print(std::cerr, "build dir doesn't exist: {:?}", dir);
+            ::exit(1);
         }
         oe.eto()
                 .args("xc", "make", "-l28", "-j" + std::to_string(numThreads))
@@ -201,7 +202,7 @@ public:
                 .setDry(dryRun)
                 .setVerbose(dryRun)
                 .run(RunMode::ExecPty);
-        fatal("unreachable");
+        ::exit(1); // unreachable
     }
 
     VeoOe oe;
