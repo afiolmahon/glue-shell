@@ -330,11 +330,15 @@ int main(int argc, char** argv)
                     [&build]() { create_directories(build.dir); },
                     fmt::format("creating directory {}", build.dir));
 
-            std::vector<std::string> args{"-DUSE_CLANG_TIDY=NO", "-DCMAKE_BUILD_TYPE=RelWithDebugInfo"};
+            std::vector<std::string> cmakeArgs{
+                    "-DUSE_CLANG_TIDY=NO",
+                    "-DCMAKE_BUILD_TYPE=RelWithDebugInfo",
+            };
             if (build.repo.isVeobot() || build.repo.isCruft()) {
-                args.push_back("-DETO_STAGEDIR=" + build.oe.pathToStage(build.stage).string());
+                cmakeArgs.push_back("-DETO_STAGEDIR=" + build.oe.pathToStage(build.stage).string());
             }
-            cmake(build, ++it, args.end());
+            cmakeArgs.insert(cmakeArgs.end(), ++it, args.end()); // fwd remaining command line args
+            cmake(build, cmakeArgs.begin(), cmakeArgs.end());
             return 0;
         } else if (arg == "install") {
             Build build = currentBuildConfig();
