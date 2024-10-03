@@ -21,7 +21,7 @@ PenaltyBreakAssignment: 200
 PenaltyBreakBeforeFirstCallParameter: 0
 PenaltyReturnTypeOnItsOwnLine: 120
 SpacesInContainerLiterals: false
-Standard:        c++17
+Standard:        c++20
 
 
 # Default values
