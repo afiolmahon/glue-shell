@@ -252,6 +252,9 @@ constexpr const char* const helpText = R"(A DWIM wrapper for the eto utility
     cmake <ARGS...> - invoke cmake from the current stage build dir
     cmake-init <ARGS...> - initialize a cmake dir for the current stage
     set-stage <stage-name> - set the stage name associated with the current repo
+    stage shell <ARGS...> - call eto stage shell in a more robust way
+      - executed from ETO_ROOT to ensure bind-dir is found more reliably regardless of current file system position
+      - stage is inferred via the same semantics as `crew install`
     install - eto stage install the current build configuration
     mk <ARGS...> - invoke make with the current stage build configuration
     test - build and run all tests
@@ -315,6 +318,30 @@ int main(int argc, char** argv)
             Build build = currentBuildConfig();
             cmake(build, ++it, args.end());
             return 0;
+        } else if (arg == "stage") {
+            ++it;
+            const auto subcmd = *it;
+            if (subcmd == "shell") {
+                std::optional oe = findOe();
+                if (!oe.has_value()) {
+                    fmt::print(std::cerr, "unable to locate veo-oe");
+                    return 0;
+                }
+
+                const auto stage = Stage::lookup(stageName, currentRepo());
+                oe->eto()
+                        .args("stage", "-n", stage.name, "shell")
+                        // Foward remaining args to eto stage shell
+                        .args(++it, args.end())
+                        .setCurrentDir(oe->etoRoot)
+                        .setDry(dryRun)
+                        .setVerbose(dryRun)
+                        .run(RunMode::ExecPty);
+                return 0;
+            }
+            fmt::print(std::cerr, "unknown command: stage {}", subcmd);
+            return 1;
+
         } else if (arg == "cmake-init") {
             Build build = currentBuildConfig();
 
