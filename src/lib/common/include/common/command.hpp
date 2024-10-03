@@ -1,5 +1,5 @@
 /**
- * Wrapper for running an external commands and obtaining its output
+ * Wrapper for running an external command and obtaining output
  */
 #ifndef CREW_COMMAND_HPP
 #define CREW_COMMAND_HPP
@@ -37,20 +37,20 @@ public:
         args(std::forward<Args>(arguments)...);
     }
 
-    template <typename First, typename... Rest, std::enable_if_t<std::is_convertible_v<First, std::string>, int> = 0>
+    template <std::convertible_to<std::string> First, typename... Rest>
     Command& args(First&& first, Rest&&... rest) &
     {
         m_args.emplace_back(std::forward<First>(first));
         args<Rest...>(std::forward<Rest>(rest)...);
         return *this;
     }
-    template <typename First, typename... Rest, std::enable_if_t<std::is_convertible_v<First, std::string>, int> = 0>
+    template <std::convertible_to<std::string> First, typename... Rest>
     Command args(First&& first, Rest&&... rest) &&
     {
         return std::move(this->args(std::forward<First>(first), std::forward<Rest>(rest)...));
     }
 
-    template <typename Begin, typename End, typename = typename Begin::value_type>
+    template <std::output_iterator<std::string_view> Begin, std::sentinel_for<Begin> End>
     Command& args(Begin begin, End end) &
     {
         for (auto it = begin; it != end; ++it) {
@@ -58,7 +58,7 @@ public:
         }
         return *this;
     }
-    template <typename Begin, typename End, typename = typename Begin::value_type>
+    template <std::output_iterator<std::string_view> Begin, std::sentinel_for<Begin> End>
     Command args(Begin begin, End end) &&
     {
         return std::move(this->args(begin, end));
