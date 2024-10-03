@@ -309,7 +309,8 @@ int main(int argc, char** argv)
             dryRun = true;
         } else if (*it == "-n" || *it == "--name") {
             if (++it == args.end()) {
-                fatal("expected stage name following {:s}", *it);
+                fmt::print(std::cerr, "expected stage name following {:s}", *it);
+                return 1;
             }
             stageName = *it;
         } else if (*it == "cmake") {
@@ -344,11 +345,13 @@ int main(int argc, char** argv)
             Build build = currentBuildConfig();
 
             if (!build.repo.isCmakeProject()) {
-                fatal("not a cmake project");
+                fmt::print(std::cerr, "not a cmake project");
+                return 1;
             }
 
             if (exists(build.dir)) {
-                fatal("build dir {} already exists", build.dir);
+                fmt::print(std::cerr, "build dir {:?} already exists", build.dir);
+                return 1;
             }
 
             build.transaction(
@@ -368,7 +371,8 @@ int main(int argc, char** argv)
         } else if (*it == "install") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
-                fatal("build dir doesn't exist");
+                fmt::print(std::cerr, "build dir not found: {:?}", build.dir);
+                return 1;
             }
 
             auto c = build.oe.eto()
@@ -395,7 +399,8 @@ int main(int argc, char** argv)
         } else if (*it == "targets") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
-                fatal("build dir doesn't exist");
+                fmt::print(std::cerr, "build directory not found: {:?}", build.dir);
+                return 1;
             }
             std::string cmd = "make -qp"
                               " | awk -F':' '/^[a-zA-Z0-9][^$#\\/\\t=]*:([^=]|$)/ "
@@ -406,7 +411,8 @@ int main(int argc, char** argv)
         } else if (*it == "lint") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
-                fatal("build dir doesn't exist");
+                fmt::print("build directory not found: {:?}", build.dir);
+                return 1;
             }
             build.oe.eto()
                     .args("js", "yarn", "lint")
@@ -418,7 +424,8 @@ int main(int argc, char** argv)
         } else if (*it == "serve") {
             Build build = currentBuildConfig();
             if (!is_directory(build.dir)) {
-                fatal("build dir doesn't exist");
+                fmt::print("build directory not found: {:?}", build.dir);
+                return 1;
             }
             build.oe.eto()
                     .args("js", "yarn", "serve")
@@ -438,11 +445,13 @@ int main(int argc, char** argv)
             return 0;
         } else if (*it == "set-stage") {
             if (dryRun) { // TODO: dry run support
-                fatal("{:s} doesn't support dry run", *it);
+                fmt::print(std::cerr, "{:s} doesn't support dry run", *it);
+                return 1;
             }
             // TODO: uniformly respect -n argument
             if (stageName.has_value()) {
-                fatal("{:s} doesn't support -n argument", *it);
+                fmt::print(std::cerr, "{:s} doesn't support -n argument", *it);
+                return 1;
             }
             std::optional<Repo> repo = currentRepo();
             if (!repo.has_value()) {
@@ -466,11 +475,13 @@ int main(int argc, char** argv)
             return 0;
         } else if (*it == "update-oe") {
             if (dryRun) { // TODO: dry run support
-                fatal("{:s} doesn't support dry run", *it);
+                fmt::print(std::cerr, "{:s} doesn't support dry run", *it);
+                return 1;
             }
             auto oe = findOe();
             if (!oe.has_value()) {
-                fatal("veo oe not found");
+                fmt::print(std::cerr, "veo oe not found");
+                return 1;
             }
 
             Command("git", "fetch").setCurrentDir(oe->etoRoot).run();
@@ -479,9 +490,10 @@ int main(int argc, char** argv)
             Command(oe->etoPath(), "oe", "bitbake", "veo-sysroots", "root-image")
                     .setCurrentDir(oe->etoRoot)
                     .run(RunMode::ExecPty);
-            fatal("unreachable");
+            return 1; // unreachable
         } else {
-            fatal("unknown argument \"{:s}\"", *it);
+            fmt::print(std::cerr, "unknown argument: {:?}", *it);
+            return 1;
         }
     }
     return 0;
