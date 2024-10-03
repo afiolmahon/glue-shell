@@ -309,7 +309,7 @@ int main(int argc, char** argv)
             dryRun = true;
         } else if (*it == "-n" || *it == "--name") {
             if (++it == args.end()) {
-                fatal("missing stage name after ", *it);
+                fatal("expected stage name following {:s}", *it);
             }
             stageName = *it;
         } else if (*it == "cmake") {
