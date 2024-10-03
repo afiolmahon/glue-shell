@@ -440,6 +440,10 @@ int main(int argc, char** argv)
             if (dryRun) { // TODO: dry run support
                 fatal("{:s} doesn't support dry run", *it);
             }
+            // TODO: uniformly respect -n argument
+            if (stageName.has_value()) {
+                fatal("{:s} doesn't support -n argument", *it);
+            }
             std::optional<Repo> repo = currentRepo();
             if (!repo.has_value()) {
                 std::cerr << "Can't update stage; not in a git repo\n";
