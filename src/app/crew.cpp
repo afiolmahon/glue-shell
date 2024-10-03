@@ -119,20 +119,6 @@ public:
     /** @return - path to the stage with the specified name, dir may not exist */
     fs::path pathToStage(const Stage& stage) { return etoRoot / "tmp" / "stages" / stage.name; }
 
-    /** Fetch and pull latest OE, update layers, and bitbake */
-    [[noreturn]] void updateOe()
-    {
-        Command("git", "fetch").setCurrentDir(etoRoot).run();
-        Command("git", "pull").setCurrentDir(etoRoot).run();
-        eto().args("oe", "update-layers")
-                .setCurrentDir(etoRoot)
-                .run();
-        Command(etoPath(), "oe", "bitbake", "veo-sysroots", "root-image")
-                .setCurrentDir(etoRoot)
-                .run(RunMode::ExecPty);
-        fatal("unreachable");
-    }
-
     fs::path etoRoot;
 };
 
@@ -453,8 +439,14 @@ int main(int argc, char** argv)
             if (!oe.has_value()) {
                 fatal("veo oe not found");
             }
-            oe->updateOe();
-            return 0;
+
+            Command("git", "fetch").setCurrentDir(oe->etoRoot).run();
+            Command("git", "pull").setCurrentDir(oe->etoRoot).run();
+            oe->eto().args("oe", "update-layers").setCurrentDir(oe->etoRoot).run();
+            Command(oe->etoPath(), "oe", "bitbake", "veo-sysroots", "root-image")
+                    .setCurrentDir(oe->etoRoot)
+                    .run(RunMode::ExecPty);
+            fatal("unreachable");
         } else {
             fatal("unknown argument \"{:s}\"", arg);
         }
