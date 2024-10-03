@@ -56,10 +56,10 @@ static std::optional<Repo> currentRepo()
     std::stringstream outStr;
     std::ofstream errStr("/dev/null");
     if (int result = Command("git", "rev-parse", "--show-toplevel")
-                             .setOut(outStr)
-                             .setErr(errStr)
-                             .onError(OnError::Return)
-                             .run();
+                    .setOut(outStr)
+                    .setErr(errStr)
+                    .onError(OnError::Return)
+                    .run();
             result == 0) {
         fs::path gitRoot = trim(outStr.str());
         if (gitRoot.empty()) {
