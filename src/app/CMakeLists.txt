@@ -1,11 +1,3 @@
-add_executable(crew-cli crew.cpp)
-target_link_libraries(crew-cli
-    PRIVATE
-        crew-common
-        fmt
-        nlohmann_json::nlohmann_json
-)
-
 add_executable(crew-repl crew-repl.cpp)
 target_link_libraries(crew-repl
     PRIVATE
