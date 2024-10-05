@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include <unistd.h>
+
 #include <fmt/format.h>
 
 namespace crew {
